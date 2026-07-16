@@ -1,0 +1,1184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pherd Sus - Fullscreen Edition</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #0d0d0d;
+            color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* Sleek Control Dashboard - Now floating at the bottom */
+        #dashboard {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: auto;
+            min-width: 800px;
+            background: linear-gradient(90deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.9));
+            border: 2px solid #334155;
+            border-radius: 12px;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            padding: 14px 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.8);
+            z-index: 20;
+            backdrop-filter: blur(4px);
+        }
+
+        .dash-segment {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+            letter-spacing: 0.5px;
+        }
+
+        .key-cap {
+            background-color: #334155;
+            border: 1px solid #475569;
+            border-radius: 4px;
+            padding: 3px 8px;
+            font-weight: bold;
+            color: #f1f5f9;
+            box-shadow: 0 2px 0 #020617;
+        }
+
+        #ui-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        canvas {
+            background-color: #0d0e12;
+            display: block;
+            cursor: crosshair;
+        }
+
+        /* Screen Overlays */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.85);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 30;
+        }
+
+        .hidden { display: none !important; }
+
+        h2 {
+            font-size: 42px;
+            color: #ffd700;
+            margin-bottom: 25px;
+            text-shadow: 0 4px 0 #000, 0 0 10px rgba(255, 215, 0, 0.5);
+        }
+
+        .btn {
+            background-color: #d32f2f;
+            color: white;
+            border: 2px solid white;
+            padding: 15px 30px;
+            font-size: 20px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: all 0.15s ease;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+        }
+        .btn:hover { background-color: #f44336; transform: scale(1.05); }
+
+        .choices-container {
+            display: flex;
+            gap: 16px;
+            margin-top: 20px;
+        }
+
+        .card {
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+            border: 3px solid #f1c40f;
+            border-radius: 14px;
+            width: 220px;
+            padding: 20px 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.6);
+        }
+        .card:hover {
+            transform: translateY(-8px);
+            box-shadow: 0 12px 25px rgba(241, 196, 15, 0.3);
+            background: linear-gradient(135deg, #334155, #1e293b);
+        }
+        .card-icon { font-size: 52px; margin-bottom: 10px; }
+        .card-title { font-weight: bold; font-size: 17px; margin-bottom: 8px; color: #fff;}
+        .card-desc { font-size: 13px; color: #94a3b8; line-height: 1.4; }
+
+        #zoom-indicator {
+            background-color: #1e293b;
+            border: 1px solid #475569;
+            border-radius: 20px;
+            padding: 4px 12px;
+            font-size: 13px;
+            color: #38bdf8;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Control Guide Panel -->
+<div id="dashboard">
+    <div class="dash-segment">
+        <span class="key-cap">W</span>
+        <span class="key-cap">A</span>
+        <span class="key-cap">S</span>
+        <span class="key-cap">D</span> or
+        <span class="key-cap">⬆️</span>
+        <span class="key-cap">⬇️</span>
+        <span class="key-cap">⬅️</span>
+        <span class="key-cap">➡️</span>
+        <span><b>Move</b></span>
+    </div>
+    <div class="dash-segment">
+        🖱️ <b>Scroll:</b> Zoom Camera
+    </div>
+    <div id="zoom-indicator">
+        🔍 Zoom: <span id="zoom-val">100%</span>
+    </div>
+    <div class="dash-segment">
+        🎮 <b>Game Controls</b>
+    </div>
+</div>
+
+<div id="ui-container">
+    <div id="gameover-screen" class="overlay hidden">
+        <h2 id="gameover-title">Social Battery Fully Drained!</h2>
+        <p id="gameover-stats" style="font-size: 20px; margin-bottom: 10px; color: #94a3b8;"></p>
+        <p id="gameover-score" style="font-size: 28px; font-weight: bold; margin-bottom: 25px; color: #4ade80;"></p>
+        <button class="btn" onclick="resetGame()">Try Re-Isolating</button>
+    </div>
+
+    <div id="levelup-screen" class="overlay hidden">
+        <h2>🎉 Level Up! Choose an Upgrade 🎉</h2>
+        <div class="choices-container" id="choices-box"></div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+</div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // Make canvas dynamically fit the screen
+    function resizeCanvas() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // Giant World Constants
+    const WORLD_WIDTH = 10240;
+    const WORLD_HEIGHT = 7680;
+
+    // Zoom setup
+    let zoom = 1.0;
+    const zoomValEl = document.getElementById('zoom-val');
+
+    canvas.addEventListener('wheel', e => {
+        e.preventDefault();
+        if (e.deltaY < 0) {
+            zoom = Math.min(2.5, zoom + 0.1);
+        } else {
+            zoom = Math.max(0.2, zoom - 0.1); // Max zoom out changed to 20%
+        }
+        zoomValEl.innerText = Math.round(zoom * 100) + "%";
+    }, { passive: false });
+
+    // ─── IMAGE LOADER ───
+    const imageFiles = {
+        player1: 'player1',
+        player2: 'player2',
+        player3: 'player3',
+        enemy1: 'friend1',
+        enemy2: 'friend2',
+        enemy3: 'friend3',
+        enemy4: 'friend4',
+        enemy5: 'friend5',
+        boss: 'boss',
+        secretBoss1: 'secretboss1', 
+        secretBoss2: 'secretboss2', 
+        dog: 'dog',
+        bigdog: 'bigdog',
+        weapon: 'weapon',
+        pizza: 'pizza'
+    };
+
+    const images = {};
+
+    Object.keys(imageFiles).forEach(key => {
+        const img = new Image();
+        img.triedJpg = false;
+        img.src = 'images/' + imageFiles[key] + '.png';
+        img.onerror = () => {
+            if (!img.triedJpg) {
+                img.triedJpg = true;
+                img.src = 'images/' + imageFiles[key] + '.jpg';
+            }
+        };
+        images[key] = img;
+    });
+
+    function drawSprite(imgElement, fallbackEmoji, x, y, size) {
+        if (imgElement && imgElement.complete && imgElement.naturalWidth > 0) {
+            ctx.drawImage(imgElement, x - size / 2, y - size / 2, size, size);
+        } else {
+            ctx.font = `${size}px Arial`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(fallbackEmoji, x, y);
+        }
+    }
+
+    // Dynamic Enemy Registry
+    const enemyPool = [
+        { imgKey: "enemy1", fallback: "🙋‍♂️", hp: 8, speed: 1.3, xp: 1, minLevel: 1 },  
+        { imgKey: "enemy2", fallback: "🏃‍♂️", hp: 15, speed: 2.0, xp: 2, minLevel: 3 }, 
+        { imgKey: "enemy4", fallback: "🤗", hp: 10, speed: 2.7, xp: 2, minLevel: 5 }, 
+        { imgKey: "enemy3", fallback: "💃", hp: 45, speed: 1.5, xp: 4, minLevel: 7 }, 
+        { imgKey: "enemy5", fallback: "🧛", hp: 90, speed: 1.0, xp: 6, minLevel: 9 }  
+    ];
+
+    let player, enemies, projectiles, gems, particles, pulses, chests;
+    let bossPulses, bossProjectiles; 
+    let keys = {};
+    let gameActive = true;
+    let gameTime = 0;
+    let spawnTimer = 0;
+    let levelUpActive = false;
+    let bossTimer = 0;
+    let playerScore = 0; // Scoring system
+
+    // Chest Notification Variables
+    let chestNotifyTimer = 0;
+    let chestNotifyText = "";
+
+    function triggerNotify(text, duration = 180) {
+        chestNotifyText = text;
+        chestNotifyTimer = duration;
+    }
+
+    // ─── BOSS ATTACK MECHANICS ───
+    class BossWifiPulse {
+        constructor(x, y, maxRadius, damage) {
+            this.x = x; this.y = y;
+            this.maxRadius = maxRadius;
+            this.currentRadius = 15;
+            this.damage = damage;
+            this.active = true;
+            this.hitPlayer = false;
+        }
+        update() {
+            this.currentRadius += 5; 
+            if (this.currentRadius >= this.maxRadius) {
+                this.active = false;
+                return;
+            }
+            if (!this.hitPlayer) {
+                let dist = Math.hypot(player.x - this.x, player.y - this.y);
+                if (dist < this.currentRadius + player.radius) {
+                    let reduction = Math.min(0.8, player.upgrades.shield * 0.12);
+                    player.hp -= this.damage * (1 - reduction);
+                    this.hitPlayer = true;
+                    if (player.hp <= 0) endGame();
+                }
+            }
+        }
+        draw() {
+            ctx.save();
+            ctx.strokeStyle = `rgba(239, 68, 68, ${1 - this.currentRadius / this.maxRadius})`;
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.currentRadius, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+        }
+    }
+
+    class BossProjectile {
+        constructor(x, y, tx, ty, speed, damage) {
+            this.x = x; this.y = y;
+            this.speed = speed;
+            this.damage = damage;
+            this.radius = 28;
+            this.life = 240;
+            let angle = Math.atan2(ty - y, tx - x);
+            this.vx = Math.cos(angle) * this.speed;
+            this.vy = Math.sin(angle) * this.speed;
+        }
+        update() {
+            this.life--;
+            this.x += this.vx;
+            this.y += this.vy;
+
+            let dist = Math.hypot(player.x - this.x, player.y - this.y);
+            if (dist < player.radius + this.radius) {
+                let reduction = Math.min(0.8, player.upgrades.shield * 0.12);
+                player.hp -= this.damage * (1 - reduction);
+                this.life = 0;
+                if (player.hp <= 0) endGame();
+            }
+        }
+        draw() {
+            drawSprite(images.bigdog, "😈", this.x, this.y, 70);
+        }
+    }
+
+    // ─── PLAYER PROJECTILE MECHANICS ───
+    class DogProjectile {
+        constructor(x, y, target, level) {
+            this.x = x; this.y = y;
+            this.target = target;
+            this.speed = 6 + level;
+            this.damage = 5 + (level * 3.5);
+            this.radius = 24;
+            this.life = 180;
+        }
+        update() {
+            this.life--;
+            if (enemies.includes(this.target)) {
+                let angle = Math.atan2(this.target.y - this.y, this.target.x - this.x);
+                this.x += Math.cos(angle) * this.speed;
+                this.y += Math.sin(angle) * this.speed;
+            } else {
+                if(enemies.length > 0) this.target = enemies[0];
+                else this.x += this.speed;
+            }
+        }
+        draw() {
+            drawSprite(images.dog, "🐕", this.x, this.y, 56);
+        }
+    }
+
+    class BigDogProjectile {
+        constructor(x, y, target, level) {
+            this.x = x; this.y = y;
+            this.speed = 4.5 + (level * 0.5);
+            this.damage = 15 + (level * 8);
+            this.radius = 36;
+            this.life = 220;
+            this.pierce = 2 + level;
+            this.alreadyHit = new Set();
+            
+            let angle = Math.atan2(target.y - y, target.x - x);
+            this.vx = Math.cos(angle) * this.speed;
+            this.vy = Math.sin(angle) * this.speed;
+        }
+        update() {
+            this.life--;
+            this.x += this.vx;
+            this.y += this.vy;
+        }
+        draw() {
+            drawSprite(images.bigdog, "🐕‍🦺", this.x, this.y, 90);
+        }
+    }
+
+    class WifiPulse {
+        constructor(x, y, level) {
+            this.x = x; this.y = y;
+            this.maxRadius = 130 + (level * 50);
+            this.currentRadius = 15;
+            this.damage = 4 + (level * 2);
+            this.knockback = 9 + level;
+            this.active = true;
+            this.hitEnemies = new Set();
+        }
+        update() {
+            this.currentRadius += 8;
+            if (this.currentRadius >= this.maxRadius) {
+                this.active = false;
+                return;
+            }
+
+            enemies.forEach(e => {
+                let dist = Math.hypot(e.x - this.x, e.y - this.y);
+                if (dist < this.currentRadius && !this.hitEnemies.has(e)) {
+                    e.takeDamage(this.damage);
+                    this.hitEnemies.add(e);
+                    let angle = Math.atan2(e.y - this.y, e.x - this.x);
+                    e.x += Math.cos(angle) * this.knockback;
+                    e.y += Math.sin(angle) * this.knockback;
+                }
+            });
+        }
+        draw() {
+            ctx.save();
+            ctx.strokeStyle = `rgba(56, 189, 248, ${1 - this.currentRadius / this.maxRadius})`;
+            ctx.lineWidth = 8;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.currentRadius, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+        }
+    }
+
+    // ─── CHEST CLASS ───
+    class Chest {
+        constructor(x, y) {
+            this.x = x;
+            this.y = y;
+            this.radius = 24;
+            this.pulseTimer = 0;
+        }
+        update() {
+            this.pulseTimer += 0.05;
+            let dist = Math.hypot(player.x - this.x, player.y - this.y);
+            let pickupRange = 180 + (player.upgrades.magnet * 60);
+
+            if (dist < pickupRange) { 
+                let angle = Math.atan2(player.y - this.y, player.x - this.x);
+                this.x += Math.cos(angle) * 9;
+                this.y += Math.sin(angle) * 9;
+            }
+            if (dist < player.radius + 15) {
+                openChest();
+                chests = chests.filter(c => c !== this);
+            }
+        }
+        draw() {
+            ctx.save();
+            ctx.strokeStyle = `rgba(241, 196, 15, ${0.3 + Math.sin(this.pulseTimer) * 0.2})`;
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, 35 + Math.sin(this.pulseTimer) * 5, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.restore();
+
+            drawSprite(null, "📦", this.x, this.y, 50);
+        }
+    }
+
+    function openChest() {
+        const roll = Math.random();
+        
+        if (roll < 0.12) {
+            player.hp = player.maxHp;
+            triggerNotify("🔋 Social Battery Charged to Maximum!");
+        } else if (roll < 0.25) {
+            let rewardXp = Math.max(30, Math.round(player.nextXp * 0.4));
+            player.gainXp(rewardXp);
+            triggerNotify(`✨ Pizza Party Jackpot! (+${rewardXp} XP)`);
+        } else {
+            const keys = Object.keys(player.upgrades);
+            const chosenKey = keys[Math.floor(Math.random() * keys.length)];
+            
+            player.upgrades[chosenKey]++;
+            
+            const upgNames = {
+                dog: 'Shepherd Dog 🐕',
+                bigdog: 'Big Shepherd 🐕‍🦺',
+                stick: 'Herding Crook 🦯',
+                coffee: 'Energy Coffee ☕',
+                wifi: 'WiFi Router 📶',
+                pizza: 'Stolen Pizza 🍕',
+                shield: 'Heavy Coat 🛡️',
+                magnet: 'Energy Drink 🧲',
+                clock: 'Turbo Watch ⌚'
+            };
+            
+            triggerNotify(`🎁 Chest Upgrade: ${upgNames[chosenKey]} (Lv ${player.upgrades[chosenKey]})!`);
+            playerScore += 500; // Bonus points for getting an upgrade
+        }
+    }
+
+    // ─── PLAYER CLASS ───
+    class Player {
+        constructor() {
+            this.x = WORLD_WIDTH / 2;
+            this.y = WORLD_HEIGHT / 2;
+            this.radius = 36;
+            this.speed = 3.6;
+            this.hp = 100;
+            this.maxHp = 100;
+            this.level = 1;
+            this.xp = 0;
+            this.nextXp = 10;
+            
+            this.upgrades = { 
+                dog: 1, bigdog: 0, stick: 0, coffee: 0, wifi: 0, 
+                pizza: 0, shield: 0, magnet: 0, clock: 0 
+            };
+            this.timers = { dog: 0, bigdog: 0, wifi: 0 };
+            this.stickAngle = 0;
+        }
+
+        draw() {
+            let currentImg = images.player1;
+            let fallbackEmoji = "🧑‍🌾";
+
+            if (this.level >= 10) {
+                currentImg = images.player3;
+                fallbackEmoji = "👑";
+            } else if (this.level >= 5) {
+                currentImg = images.player2;
+                fallbackEmoji = "🤠";
+            }
+
+            drawSprite(currentImg, fallbackEmoji, this.x, this.y, 96);
+
+            // Infinite Crook spin
+            if (this.upgrades.stick > 0) {
+                this.stickAngle += 0.04;
+                let radius = 100 + (this.upgrades.stick * 5);
+                let count = this.upgrades.stick;
+                
+                for(let i = 0; i < count; i++) {
+                    let angleOffset = (Math.PI * 2 / count) * i;
+                    let sx = this.x + Math.cos(this.stickAngle + angleOffset) * radius;
+                    let sy = this.y + Math.sin(this.stickAngle + angleOffset) * radius;
+                    
+                    drawSprite(images.weapon, "🦯", sx, sy, 64);
+                    
+                    enemies.forEach(e => {
+                        let dist = Math.hypot(e.x - sx, e.y - sy);
+                        if(dist < 40) { e.takeDamage(0.4 * (1 + player.upgrades.stick * 0.1)); }
+                    });
+                }
+            }
+
+            // Draw Health Bar
+            let hpW = 90; let hpH = 12;
+            let hpx = this.x - hpW/2;
+            let hpy = this.y + 60;
+            ctx.fillStyle = "#1e293b";
+            ctx.fillRect(hpx, hpy, hpW, hpH);
+            
+            let hpPct = Math.max(0, this.hp / this.maxHp);
+            ctx.fillStyle = hpPct > 0.4 ? "#10b981" : "#ef4444";
+            ctx.fillRect(hpx, hpy, hpW * hpPct, hpH);
+            ctx.strokeStyle = "#000";
+            ctx.lineWidth = 1.5;
+            ctx.strokeRect(hpx, hpy, hpW, hpH);
+        }
+
+        update() {
+            let currentSpeed = this.speed + (this.upgrades.coffee * 0.5);
+
+            let dx = 0; let dy = 0;
+            if (keys['w'] || keys['ArrowUp']) dy = -1;
+            if (keys['s'] || keys['ArrowDown']) dy = 1;
+            if (keys['a'] || keys['ArrowLeft']) dx = -1;
+            if (keys['d'] || keys['ArrowRight']) dx = 1;
+
+            if (dx !== 0 && dy !== 0) { dx *= 0.7071; dy *= 0.7071; }
+
+            this.x += dx * currentSpeed;
+            this.y += dy * currentSpeed;
+            
+            this.x = Math.max(35, Math.min(WORLD_WIDTH - 35, this.x));
+            this.y = Math.max(35, Math.min(WORLD_HEIGHT - 35, this.y));
+
+            if (this.upgrades.pizza > 0 && this.hp < this.maxHp) {
+                this.hp = Math.min(this.maxHp, this.hp + (0.006 * this.upgrades.pizza));
+            }
+
+            let cdMultiplier = Math.max(0.4, 1 - (this.upgrades.clock * 0.08));
+
+            this.timers.dog++;
+            let fireDelay = Math.max(15, (70 - (this.upgrades.dog * 8)) * cdMultiplier);
+            if (this.timers.dog >= fireDelay && enemies.length > 0) {
+                this.timers.dog = 0;
+                let target = null; let minDist = Infinity;
+                enemies.forEach(e => {
+                    let d = Math.hypot(e.x - this.x, e.y - this.y);
+                    if (d < minDist) { minDist = d; target = e; }
+                });
+                if(target) {
+                    projectiles.push(new DogProjectile(this.x, this.y, target, this.upgrades.dog));
+                }
+            }
+
+            if (this.upgrades.bigdog > 0) {
+                this.timers.bigdog++;
+                let bigDogDelay = Math.max(60, (190 - (this.upgrades.bigdog * 15)) * cdMultiplier);
+                if (this.timers.bigdog >= bigDogDelay && enemies.length > 0) {
+                    this.timers.bigdog = 0;
+                    let target = enemies[Math.floor(Math.random() * enemies.length)];
+                    projectiles.push(new BigDogProjectile(this.x, this.y, target, this.upgrades.bigdog));
+                }
+            }
+
+            if (this.upgrades.wifi > 0) {
+                this.timers.wifi++;
+                let wifiDelay = Math.max(60, (200 - (this.upgrades.wifi * 20)) * cdMultiplier);
+                if (this.timers.wifi >= wifiDelay) {
+                    this.timers.wifi = 0;
+                    pulses.push(new WifiPulse(this.x, this.y, this.upgrades.wifi));
+                }
+            }
+        }
+
+        gainXp(amt) {
+            this.xp += amt;
+            if (this.xp >= this.nextXp) {
+                this.xp -= this.nextXp;
+                this.level++;
+                
+                if (this.level > 15) {
+                    this.nextXp = Math.floor(this.nextXp * 1.8) + 120;
+                } else {
+                    this.nextXp = Math.floor(this.nextXp * 1.35) + 6;
+                }
+                
+                triggerLevelUp();
+            }
+        }
+    }
+
+    // ─── ENEMIES CLASS ───
+    class FriendEnemy {
+        constructor(x, y, typeInfo) {
+            this.x = x; this.y = y;
+            this.imgKey = typeInfo.imgKey;
+            this.fallback = typeInfo.fallback;
+            this.hp = typeInfo.hp;
+            this.maxHp = typeInfo.hp;
+            this.speed = typeInfo.speed;
+            this.xpReward = typeInfo.xp;
+            this.radius = typeInfo.radius || 30;
+            this.isBoss = typeInfo.isBoss || false;
+            this.name = typeInfo.name || "Friend";
+
+            this.pulseTimer = 0;
+            this.shootTimer = 0;
+        }
+        update() {
+            let angle = Math.atan2(player.y - this.y, player.x - this.x);
+            this.x += Math.cos(angle) * this.speed;
+            this.y += Math.sin(angle) * this.speed;
+
+            let dist = Math.hypot(player.x - this.x, player.y - this.y);
+            if (dist < player.radius + this.radius) {
+                let baseDamage = this.isBoss ? 0.8 : 0.3;
+                let reduction = Math.min(0.8, player.upgrades.shield * 0.12);
+                player.hp -= baseDamage * (1 - reduction);
+                
+                if (player.hp <= 0) endGame();
+            }
+
+            // Secret Boss Action Loops
+            if (this.isBoss) {
+                if (this.name.includes("zpherd")) {
+                    this.pulseTimer++;
+                    if (this.pulseTimer >= 180) {
+                        this.pulseTimer = 0;
+                        let maxRange = 240 + Math.min(100, player.level * 4);
+                        let dmg = 12 + Math.min(20, player.level * 0.5);
+                        bossPulses.push(new BossWifiPulse(this.x, this.y, maxRange, dmg));
+                    }
+                }
+                if (this.name.includes("zpherd ???%")) {
+                    this.shootTimer++;
+                    if (this.shootTimer >= 150) {
+                        this.shootTimer = 0;
+                        let pSpeed = 4.5 + Math.min(3, player.level * 0.1);
+                        let pDmg = 15 + Math.min(25, player.level * 0.6);
+                        bossProjectiles.push(new BossProjectile(this.x, this.y, player.x, player.y, pSpeed, pDmg));
+                    }
+                }
+            }
+        }
+        draw() {
+            let scaleSize = this.isBoss ? 160 : 80;
+            drawSprite(images[this.imgKey], this.fallback, this.x, this.y, scaleSize);
+
+            if (this.hp < this.maxHp && !this.isBoss) {
+                let barW = 40;
+                ctx.fillStyle = "#475569";
+                ctx.fillRect(this.x - barW/2, this.y - 48, barW, 6);
+                ctx.fillStyle = "#ef4444";
+                ctx.fillRect(this.x - barW/2, this.y - 48, barW * (this.hp / this.maxHp), 6);
+            }
+        }
+        takeDamage(amt) {
+            this.hp -= amt;
+            if (this.hp <= 0) {
+                // ADD SCORE FOR KILL
+                playerScore += this.isBoss ? 1500 : this.xpReward * 10;
+
+                if (this.isBoss) {
+                    chests.push(new Chest(this.x, this.y));
+                    chests.push(new Chest(this.x - 70, this.y + 70));
+                    chests.push(new Chest(this.x + 70, this.y - 70));
+                    for(let i = 0; i < 12; i++) {
+                        let rx = this.x + (Math.random() - 0.5) * 140;
+                        let ry = this.y + (Math.random() - 0.5) * 140;
+                        gems.push(new Gem(rx, ry, 20));
+                    }
+                    triggerNotify("🏆 BOSS DEFEATED! Massive Loot Dropped!");
+                } else {
+                    gems.push(new Gem(this.x, this.y, this.xpReward));
+                    if (Math.random() < 0.05) {
+                        chests.push(new Chest(this.x, this.y));
+                    }
+                }
+
+                enemies = enemies.filter(e => e !== this);
+                let particleCount = this.isBoss ? 30 : 8;
+                for(let i=0; i < particleCount; i++) particles.push(new Particle(this.x, this.y));
+            }
+        }
+    }
+
+    // Dynamic Boss Spawner
+    function spawnBoss() {
+        const spawnDistance = 800 / Math.max(0.6, zoom);
+        const angle = Math.random() * Math.PI * 2;
+        let x = player.x + Math.cos(angle) * spawnDistance;
+        let y = player.y + Math.sin(angle) * spawnDistance;
+
+        x = Math.max(120, Math.min(WORLD_WIDTH - 120, x));
+        y = Math.max(120, Math.min(WORLD_HEIGHT - 120, y));
+
+        let hpMult = 1.0;
+        let speedMult = 1.0;
+
+        if (player.level <= 5) {
+            hpMult = 0.5; 
+            speedMult = 0.8;
+        } else if (player.level > 15) {
+            let excess = player.level - 15;
+            hpMult = Math.pow(1.35, excess) * 2.5; 
+            speedMult = Math.pow(1.06, excess) * 1.25;
+        } else {
+            let progress = player.level - 5;
+            hpMult = 1.0 + progress * 0.15;
+            speedMult = 1.0 + progress * 0.03;
+        }
+
+        let secretChance = 0.02; 
+        if (player.level > 15) {
+            secretChance = 0.10 + (player.level - 15) * 0.02;
+            secretChance = Math.min(0.40, secretChance); 
+        }
+
+        let isSecret = Math.random() < secretChance;
+        let bossName = "";
+        let bossHP = 200;
+        let bossSpeed = 1.25;
+        let fallbackChar = "👹";
+        let imgKey = "boss";
+
+        if (isSecret) {
+            fallbackChar = "💀";
+            if (player.level > 15) {
+                bossName = `Secret Boss: zpherd ???% (Lv ${player.level}) 💀`;
+                bossHP = 480;
+                bossSpeed = 1.5;
+                imgKey = "secretBoss2"; 
+            } else {
+                bossName = `Secret Boss: zpherd (Lv ${player.level}) 💀`;
+                bossHP = 320;
+                bossSpeed = 1.35;
+                imgKey = "secretBoss1"; 
+            }
+        } else {
+            bossName = `okkotsu (Lv ${player.level}) 👹`;
+            bossHP = 200;
+            bossSpeed = 1.25;
+            imgKey = "boss";
+        }
+
+        bossHP = Math.round(bossHP * hpMult);
+        bossSpeed = Math.min(4.5, bossSpeed * speedMult);
+
+        let boss = new FriendEnemy(x, y, {
+            imgKey: imgKey,
+            fallback: fallbackChar,
+            hp: bossHP,
+            speed: bossSpeed,
+            xp: isSecret ? 300 : 120, 
+            radius: isSecret ? 75 : 65,
+            isBoss: true,
+            name: bossName
+        });
+
+        enemies.push(boss);
+        if (isSecret) {
+            triggerNotify("🚨 CRITICAL WARNING: SECRET BOSS EMERGES!", 300);
+        } else {
+            triggerNotify("⚠️ WARNING: okkotsu has appeared!", 240);
+        }
+    }
+
+    // ─── DROPPED ITEMS & PARTICLES ───
+    class Gem {
+        constructor(x, y, value) {
+            this.x = x; this.y = y;
+            this.value = value;
+            this.radius = 18;
+        }
+        update() {
+            let dist = Math.hypot(player.x - this.x, player.y - this.y);
+            let magnetRange = 150 + (player.upgrades.magnet * 60);
+
+            if(dist < magnetRange) {
+                let angle = Math.atan2(player.y - this.y, player.x - this.x);
+                this.x += Math.cos(angle) * 8;
+                this.y += Math.sin(angle) * 8;
+            }
+            if (dist < player.radius + 5) {
+                player.gainXp(this.value);
+                gems = gems.filter(g => g !== this);
+            }
+        }
+        draw() {
+            drawSprite(images.pizza, "🍕", this.x, this.y, 48);
+        }
+    }
+
+    class Particle {
+        constructor(x, y) {
+            this.x = x; this.y = y;
+            this.vx = (Math.random() - 0.5) * 6;
+            this.vy = (Math.random() - 0.5) * 6;
+            this.alpha = 1;
+        }
+        update() { this.x += this.vx; this.y += this.vy; this.alpha -= 0.04; }
+        draw() {
+            ctx.save();
+            ctx.globalAlpha = Math.max(0, this.alpha);
+            ctx.fillStyle = "#facc15";
+            ctx.fillRect(this.x, this.y, 6, 6);
+            ctx.restore();
+        }
+    }
+
+    window.addEventListener('keydown', e => keys[e.key] = true);
+    window.addEventListener('keyup', e => keys[e.key] = false);
+
+    function resetGame() {
+        player = new Player();
+        enemies = []; projectiles = []; gems = []; particles = []; pulses = []; chests = [];
+        bossPulses = []; bossProjectiles = [];
+        gameTime = 0; spawnTimer = 0; playerScore = 0;
+        bossTimer = 5400; 
+        gameActive = true; levelUpActive = false;
+        chestNotifyTimer = 0;
+        document.getElementById('gameover-screen').classList.add('hidden');
+        document.getElementById('levelup-screen').classList.add('hidden');
+    }
+
+    function getEnemyType() {
+        let unlockedPool = enemyPool.filter(e => player.level >= e.minLevel);
+        if (unlockedPool.length === 0) unlockedPool = [enemyPool[0]];
+        return unlockedPool[Math.floor(Math.random() * unlockedPool.length)];
+    }
+
+    function spawnEnemyWave() {
+        spawnTimer++;
+        
+        let spawnRate = 40;
+        if (player.level <= 5) {
+            spawnRate = Math.max(45, 80 - player.level * 8); 
+        } else if (player.level > 15) {
+            spawnRate = Math.max(4, 12 - (player.level - 15)); 
+        } else {
+            spawnRate = Math.max(8, 40 - Math.floor(gameTime / 6));
+        }
+
+        if (spawnTimer >= spawnRate) {
+            spawnTimer = 0;
+            
+            const spawnDistance = 750 / Math.max(0.2, zoom);
+            const angle = Math.random() * Math.PI * 2;
+            let x = player.x + Math.cos(angle) * spawnDistance;
+            let y = player.y + Math.sin(angle) * spawnDistance;
+
+            x = Math.max(40, Math.min(WORLD_WIDTH - 40, x));
+            y = Math.max(40, Math.min(WORLD_HEIGHT - 40, y));
+
+            let baseType = getEnemyType();
+            let typeInfo = { ...baseType };
+
+            let hpMult = 1.0;
+            let speedMult = 1.0;
+
+            if (player.level <= 5) {
+                hpMult = 0.6; 
+                speedMult = 0.75;
+            } else if (player.level > 15) {
+                let excess = player.level - 15;
+                hpMult = 1.0 * Math.pow(1.3, excess);
+                speedMult = 1.0 * Math.pow(1.05, excess);
+            } else {
+                let progress = player.level - 5;
+                hpMult = 1.0 + progress * 0.05;
+                speedMult = 1.0 + progress * 0.02;
+            }
+
+            typeInfo.hp = Math.round(typeInfo.hp * hpMult);
+            typeInfo.speed = typeInfo.speed * speedMult;
+
+            enemies.push(new FriendEnemy(x, y, typeInfo));
+        }
+    }
+
+    function triggerLevelUp() {
+        levelUpActive = true;
+        document.getElementById('levelup-screen').classList.remove('hidden');
+        
+        const upgradePool = [
+            { id: 'dog', title: 'Shepherd Dog 🐕', desc: 'Increases Dog attack speeds, tracking speeds, and damage outputs.', icon: '🐕' },
+            { id: 'bigdog', title: 'Big Shepherd 🐕‍🦺', desc: 'Summons giant, heavy piercing dogs that run through swarms.', icon: '🐕‍🦺' },
+            { id: 'stick', title: 'Herding Crook 🦯', desc: 'Adds another infinite spinning protection crook around you.', icon: '🦯' },
+            { id: 'coffee', title: 'Energy Coffee ☕', desc: 'Drastically boosts player base movement speeds.', icon: '☕' },
+            { id: 'wifi', title: 'WiFi Router 📶', desc: 'Periodically blasts deep shockwaves pushing friends away.', icon: '📶' },
+            { id: 'pizza', title: 'Stolen Pizza 🍕', desc: 'Regenerates your social battery energy values quicker.', icon: '🍕' },
+            { id: 'shield', title: 'Heavy Coat 🛡️', desc: 'Mitigates and blocks incoming social battery drain damage.', icon: '🛡️' },
+            { id: 'magnet', title: 'Energy Drink 🧲', desc: 'Broadens vacuum range to pull pizzas & chests from further.', icon: '🧲' },
+            { id: 'clock', title: 'Turbo Watch ⌚', desc: 'Permanently reduces weapon attack cooldowns by 10% per level.', icon: '⌚' }
+        ];
+
+        let shuffled = upgradePool.sort(() => 0.5 - Math.random());
+        let choicesBox = document.getElementById('choices-box');
+        choicesBox.innerHTML = "";
+
+        shuffled.slice(0, 3).forEach(upg => {
+            let currentLvl = player.upgrades[upg.id];
+            let card = document.createElement('div');
+            card.className = "card";
+            card.onclick = () => selectUpgrade(upg.id);
+            card.innerHTML = `
+                <div class="card-icon">${upg.icon}</div>
+                <div class="card-title">${upg.title} (Lv ${currentLvl + 1})</div>
+                <div class="card-desc">${upg.desc}</div>
+            `;
+            choicesBox.appendChild(card);
+        });
+    }
+
+    function selectUpgrade(id) {
+        player.upgrades[id]++;
+        levelUpActive = false;
+        document.getElementById('levelup-screen').classList.add('hidden');
+    }
+
+    function endGame() {
+        gameActive = false;
+        document.getElementById('gameover-screen').classList.remove('hidden');
+        let min = Math.floor(gameTime / 60);
+        let sec = Math.floor(gameTime % 60).toString().padStart(2, '0');
+        document.getElementById('gameover-stats').innerText = `Survived for ${min}:${sec} and hit level ${player.level}!`;
+        document.getElementById('gameover-score').innerText = `Final Flex Score: ${playerScore}`;
+    }
+
+    // ─── MAIN ENGINE LOOP ───
+    function gameLoop() {
+        ctx.fillStyle = "#1e293b";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        if (gameActive && !levelUpActive) {
+            gameTime += 1 / 60;
+            player.update();
+            spawnEnemyWave();
+
+            // Passive score for surviving
+            if (Math.floor(gameTime * 60) % 60 === 0) playerScore += 5;
+
+            bossTimer--;
+            if (bossTimer <= 0) {
+                spawnBoss();
+                let nextCooldown = Math.max(15, 90 * Math.pow(0.9, player.level));
+                bossTimer = Math.round(nextCooldown * 60);
+            }
+
+            pulses.forEach(p => p.update());
+            pulses = pulses.filter(p => p.active);
+
+            chests.forEach(c => c.update());
+
+            projectiles.forEach(p => {
+                p.update();
+                enemies.forEach(e => {
+                    if (Math.hypot(e.x - p.x, e.y - p.y) < e.radius + p.radius) {
+                        if (p instanceof BigDogProjectile) {
+                            if (!p.alreadyHit.has(e)) {
+                                e.takeDamage(p.damage);
+                                p.alreadyHit.add(e);
+                                p.pierce--;
+                                if (p.pierce <= 0) p.life = 0;
+                            }
+                        } else {
+                            e.takeDamage(p.damage);
+                            p.life = 0;
+                        }
+                    }
+                });
+            });
+
+            projectiles = projectiles.filter(p => p.life > 0);
+            enemies.forEach(e => e.update());
+
+            bossPulses.forEach(p => p.update());
+            bossPulses = bossPulses.filter(p => p.active);
+
+            bossProjectiles.forEach(p => p.update());
+            bossProjectiles = bossProjectiles.filter(p => p.life > 0);
+
+            gems.forEach(g => g.update());
+            particles.forEach(p => p.update());
+            particles = particles.filter(p => p.alpha > 0);
+        }
+
+        // Camera Transform Area
+        ctx.save();
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        ctx.scale(zoom, zoom);
+        ctx.translate(-player.x, -player.y);
+
+        // Draw Arena Grass Field
+        ctx.fillStyle = "#2d5a1e";
+        ctx.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+
+        // Grid-line Overlay
+        ctx.strokeStyle = "rgba(74, 222, 128, 0.12)";
+        ctx.lineWidth = 2;
+        const spacing = 180;
+        ctx.beginPath();
+        for (let x = 0; x < WORLD_WIDTH; x += spacing) {
+            ctx.moveTo(x, 0);
+            ctx.lineTo(x, WORLD_HEIGHT);
+        }
+        for (let y = 0; y < WORLD_HEIGHT; y += spacing) {
+            ctx.moveTo(0, y);
+            ctx.lineTo(WORLD_WIDTH, y);
+        }
+        ctx.stroke();
+
+        // Arena Boundaries
+        ctx.strokeStyle = "#4ade80";
+        ctx.lineWidth = 16;
+        ctx.strokeRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+
+        // Draw Entities in camera context
+        gems.forEach(g => g.draw());
+        chests.forEach(c => c.draw());
+        projectiles.forEach(p => p.draw());
+        pulses.forEach(p => p.draw());
+        enemies.forEach(e => e.draw());
+
+        // Draw Boss Special Attacks
+        bossPulses.forEach(p => p.draw());
+        bossProjectiles.forEach(p => p.draw());
+
+        particles.forEach(p => p.draw());
+        player.draw();
+
+        ctx.restore();
+
+        drawHUD();
+
+        requestAnimationFrame(gameLoop);
+    }
+
+    function drawHUD() {
+        let xpPct = player.xp / player.nextXp;
+        ctx.fillStyle = "#1e293b";
+        ctx.fillRect(0, 0, canvas.width, 24);
+        ctx.fillStyle = "#3b82f6";
+        ctx.fillRect(0, 0, canvas.width * xpPct, 24);
+        
+        ctx.fillStyle = "white";
+        ctx.font = "bold 15px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(`LV ${player.level}`, canvas.width / 2, 12);
+
+        let min = Math.floor(gameTime / 60);
+        let sec = Math.floor(gameTime % 60).toString().padStart(2, '0');
+        ctx.font = "bold 32px Arial";
+        ctx.fillStyle = "white";
+        ctx.fillText(`${min}:${sec}`, canvas.width / 2, 62);
+
+        // Draw Flex Score
+        ctx.textAlign = "right";
+        ctx.font = "bold 24px Arial";
+        ctx.fillStyle = "#4ade80";
+        ctx.fillText(`Score: ${playerScore}`, canvas.width - 20, 56);
+
+        // Dynamic Boss Health Bar
+        let activeBoss = enemies.find(e => e.isBoss);
+        if (activeBoss) {
+            let barW = 500;
+            let barH = 20;
+            let bx = (canvas.width - barW) / 2;
+            let by = 80;
+            
+            ctx.fillStyle = "rgba(15, 23, 42, 0.85)";
+            ctx.fillRect(bx, by, barW, barH);
+            
+            let hpPct = Math.max(0, activeBoss.hp / activeBoss.maxHp);
+            ctx.fillStyle = "#dc2626";
+            ctx.fillRect(bx, by, barW * hpPct, barH);
+            
+            ctx.strokeStyle = "#ffffff";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(bx, by, barW, barH);
+            
+            ctx.fillStyle = "#ffffff";
+            ctx.font = "bold 13px Arial";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(activeBoss.name, canvas.width / 2, by + barH/2);
+        }
+
+        if (chestNotifyTimer > 0) {
+            chestNotifyTimer--;
+            ctx.save();
+            ctx.fillStyle = "rgba(241, 196, 15, 0.95)";
+            ctx.strokeStyle = "#ffffff";
+            ctx.lineWidth = 3;
+            let bannerW = 620;
+            let bannerH = 54;
+            let bx = (canvas.width - bannerW) / 2;
+            let by = 115;
+            ctx.fillRect(bx, by, bannerW, bannerH);
+            ctx.strokeRect(bx, by, bannerW, bannerH);
+            
+            ctx.fillStyle = "#0f172a";
+            ctx.font = "bold 17px Arial";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(chestNotifyText, canvas.width / 2, by + bannerH / 2);
+            ctx.restore();
+        }
+    }
+
+    resetGame();
+    gameLoop();
+</script>
+
+</body>
+</html>
