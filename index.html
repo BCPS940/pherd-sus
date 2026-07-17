@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pherd Sus - Hardcore Edition</title>
+    <style>
+        body {
+            margin: 0; padding: 0; background-color: #0d0d0d; color: #ffffff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden; user-select: none; touch-action: none; 
+        }
+        #ui-container { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; overflow: hidden; }
+        canvas { background-color: #0d0e12; display: block; cursor: crosshair; }
+        #dashboard {
+            position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: linear-gradient(90deg, rgba(30, 41, 59, 0.9), rgba(15, 23, 42, 0.9));
+            border: 2px solid #334155; border-radius: 12px; display: flex;
+            justify-content: space-around; align-items: center; padding: 14px 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.8); z-index: 20; backdrop-filter: blur(4px); gap: 20px; white-space: nowrap;
+        }
+        .key-cap { background-color: #334155; border: 1px solid #475569; border-radius: 4px; padding: 3px 8px; font-weight: bold; color: #f1f5f9; box-shadow: 0 2px 0 #020617; }
+        .overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.85); display: flex; flex-direction: column;
+            align-items: center; justify-content: center; z-index: 30;
+        }
+        .hidden { display: none !important; }
+        h2 { font-size: 32px; color: #ffd700; margin-bottom: 25px; text-shadow: 0 4px 0 #000; text-align: center; padding: 0 15px;}
+        .btn {
+            background-color: #d32f2f; color: white; border: 2px solid white;
+            padding: 15px 30px; font-size: 20px; font-weight: bold; cursor: pointer;
+            border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.4); margin-top: 10px;
+        }
+        .btn-green { background-color: #10b981; }
+        .choices-container { display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap; justify-content: center; max-width: 95%; }
+        .card {
+            background: linear-gradient(135deg, #1e293b, #0f172a); border: 2px solid #f1c40f;
+            border-radius: 14px; width: 140px; padding: 15px 10px; text-align: center;
+            cursor: pointer; box-shadow: 0 6px 20px rgba(0,0,0,0.6);
+        }
+        .card-icon { font-size: 40px; margin-bottom: 5px; }
+        .card-title { font-weight: bold; font-size: 14px; margin-bottom: 5px; color: #fff;}
+        .card-desc { font-size: 11px; color: #94a3b8; line-height: 1.2; }
+        
+        /* Leaderboard Styles */
+        input[type="text"] {
+            padding: 12px; font-size: 18px; border-radius: 8px; border: 2px solid #334155;
+            background-color: #1e293b; color: white; text-align: center; margin-bottom: 15px; width: 250px; outline: none;
+        }
+        #leaderboard-box {
+            background: rgba(15, 23, 42, 0.9); border: 2px solid #f1c40f; border-radius: 12px;
+            padding: 15px; margin-top: 20px; width: 340px; max-height: 200px; overflow-y: auto; text-align: left;
+        }
+        .lb-entry { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid #334155; font-size: 14px;}
+        .lb-entry:last-child { border-bottom: none; }
+        .lb-rank { font-weight: bold; color: #f1c40f; width: 20px; }
+        .lb-name { flex-grow: 1; padding-left: 10px; color: #fff; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; max-width: 90px; }
+        .lb-score { color: #4ade80; font-weight: bold; }
+        .lb-kills { color: #f87171; font-size: 12px; margin-left: 5px; }
+        .lb-del { color: #ef4444; cursor: pointer; font-size: 12px; margin-left: 10px; padding: 2px 5px; background: rgba(239, 68, 68, 0.1); border-radius: 4px; }
+        .lb-del:hover { background: rgba(239, 68, 68, 0.3); }
+    </style>
+</head>
+<body>
+
+<div id="dashboard">
+    <div><span class="key-cap">W</span><span class="key-cap">A</span><span class="key-cap">S</span><span class="key-cap">D</span> <b id="ui-dash-move">Move</b></div>
+    <div>🖱️ <b id="ui-dash-zoom">Scroll: Zoom Camera</b></div>
+    <div>🎮 <b id="ui-dash-control">Game Controls</b></div>
+</div>
+
+<div id="ui-container">
+    <div id="gameover-screen" class="overlay hidden">
+        <h2 id="gameover-title">ขิตแล้วไอชาย!</h2>
+        <p id="gameover-stats" style="font-size: 18px; margin-bottom: 5px; color: #94a3b8; text-align: center;"></p>
+        <p id="gameover-score" style="font-size: 24px; font-weight: bold; margin-bottom: 15px; color: #4ade80;"></p>
+        
+        <div id="submit-section" style="display: flex; flex-direction: column; align-items: center;">
+            <p style="font-size: 12px; color: #94a3b8; margin-bottom: 5px;">*คะแนนเซฟลงเครื่องตัวเอง (Local)*</p>
+            <input type="text" id="player-name-input" placeholder="ใส่ชื่อตรงนี้..." maxlength="12">
+            <button class="btn btn-green" onclick="saveScore()">บันทึกคะแนน</button>
+        </div>
+
+        <div id="leaderboard-box" class="hidden">
+            <h3 style="margin: 0 0 10px 0; color: #f1c40f; text-align: center;">🏆 Local Score</h3>
+            <div id="leaderboard-list"></div>
+        </div>
+
+        <button class="btn" id="gameover-btn" onclick="resetGame()" style="margin-top: 20px;">เกิดใหม่ดิ๊</button>
+    </div>
+
+    <div id="levelup-screen" class="overlay hidden">
+        <h2 id="levelup-title">🎉 Level Up! Choose an Upgrade 🎉</h2>
+        <div class="choices-container" id="choices-box"></div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+</div>
+
+<script>
+    // =========================================================================
+    // 🛠️ THE MASTER CONTROL PANEL
+    // =========================================================================
+    const CONFIG = {
+        ABILITIES: {
+            dog: { name: "เผิด", desc: "เผิดเชยๆ", icon: "🐕" },
+            bigdog: { name: "ไอเผิดด 😭", desc: "เผิดตัวใหญ่", icon: "🐕‍🦺" },
+            stick: { name: "Ice wall", desc: "ตั้งไอซ์วอ", icon: "🦯" },
+            coffee: { name: "Coffee", desc: "แซ็กกลิ้งไวขึ้น", icon: "☕" },
+            wifi: { name: "เน็ตโคตรแรง", desc: "ดันๆๆ", icon: "📶"},
+            pizza: { name: "Dante", desc: "Pizza อิตาลี", icon: "🍕" },
+            shield: { name: "เกาะ", desc: "กันดาเมจ", icon: "🛡️" },
+            magnet: { name: "เหล็ก", desc: "ดูด", icon: "🧲"},
+            clock: { name: "นาฬิกาไอแซ็ก", desc: "ตีไวจัด", icon: "⌚" },
+            tuakling: { name: "ตั่วกลิ้ง ไอเชฟ", desc: "ไอเชฟก็ต้องอยู่ในครัวดิวะ", icon: "🔥"}
+        },
+        BOSSES: { normal: "Okkotsu", secret: "Secret Boss" },
+        TEXT: {
+            gameOverTitle: "ขิตแล้วไอชาย!", gameOverBtn: "เกิดใหม่ดิ๊",
+            levelUpTitle: "🎉 เลเวลอัป! เลือกของเลย 🎉",
+            dashMove: "เดิน", dashZoom: "ซูมกล้อง", dashControl: "บังคับเกม",
+            notifyBoss: "⚠️ ระวัง! บอสมาแล้ว!", notifyBossDead: "🏆 ชนะบอสแล้ว! ของดรอปเพียบ!",
+            notifyBattery: "🔋 ฮีลเลือดเต็ม!", notifyPizzaJackpot: "✨ แจ็คพอตพิซซ่า!", notifyChestUpgrade: "🎁 เปิดกล่องได้:"
+        },
+        EMOJIS: {
+            player: "🧑‍🌾", playerPro: "👑", enemy1: "🙋‍♂️", enemy2: "🏃‍♂️", enemy3: "💃", enemy4: "🤗", enemy5: "🧛",
+            boss: "👹", secretBoss: "💀", molotov: "🍾", chest: "📦", pizza: "🍕"
+        }
+    };
+
+    document.getElementById('gameover-title').innerText = CONFIG.TEXT.gameOverTitle;
+    document.getElementById('gameover-btn').innerText = CONFIG.TEXT.gameOverBtn;
+    document.getElementById('levelup-title').innerText = CONFIG.TEXT.levelUpTitle;
+    document.getElementById('ui-dash-move').innerText = CONFIG.TEXT.dashMove;
+    document.getElementById('ui-dash-zoom').innerText = CONFIG.TEXT.dashZoom;
+    document.getElementById('ui-dash-control').innerText = CONFIG.TEXT.dashControl;
+
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+    if (isMobile) document.getElementById('dashboard').style.display = 'none';
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+    window.addEventListener('resize', resizeCanvas); resizeCanvas();
+
+    const WORLD_WIDTH = 10240; const WORLD_HEIGHT = 7680;
+    let zoom = 1.0;
+
+    // --- CONTROLS ---
+    let keys = {}; let joystickData = { active: false, id: null, startX: 0, startY: 0, currentX: 0, currentY: 0, dx: 0, dy: 0 }; let initialPinchDist = null;
+    window.addEventListener('keydown', e => keys[e.key] = true);
+    window.addEventListener('keyup', e => keys[e.key] = false);
+    canvas.addEventListener('wheel', e => { e.preventDefault(); zoom += e.deltaY < 0 ? 0.1 : -0.1; zoom = Math.max(0.2, Math.min(2.5, zoom)); }, { passive: false });
+
+    canvas.addEventListener('touchstart', e => {
+        e.preventDefault();
+        if (e.touches.length === 2) initialPinchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
+        for (let i = 0; i < e.touches.length; i++) {
+            let t = e.touches[i];
+            if (t.clientX < window.innerWidth && !joystickData.active) { joystickData.active = true; joystickData.id = t.identifier; joystickData.startX = t.clientX; joystickData.startY = t.clientY; joystickData.currentX = t.clientX; joystickData.currentY = t.clientY; }
+        }
+    }, {passive: false});
+
+    canvas.addEventListener('touchmove', e => {
+        e.preventDefault();
+        if (e.touches.length === 2 && initialPinchDist) { let dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY); zoom += (dist - initialPinchDist) * 0.005; zoom = Math.max(0.2, Math.min(2.5, zoom)); initialPinchDist = dist; }
+        for (let i = 0; i < e.touches.length; i++) {
+            let t = e.touches[i];
+            if (joystickData.active && t.identifier === joystickData.id) { joystickData.currentX = t.clientX; joystickData.currentY = t.clientY; let diffX = t.clientX - joystickData.startX; let diffY = t.clientY - joystickData.startY; let dist = Math.hypot(diffX, diffY); if (dist > 0) { joystickData.dx = diffX / dist * Math.min(dist / 50, 1); joystickData.dy = diffY / dist * Math.min(dist / 50, 1); } }
+        }
+    }, {passive: false});
+
+    canvas.addEventListener('touchend', e => {
+        e.preventDefault(); if (e.touches.length < 2) initialPinchDist = null;
+        let stillTouching = false; for (let i = 0; i < e.touches.length; i++) if (e.touches[i].identifier === joystickData.id) stillTouching = true;
+        if (!stillTouching) { joystickData.active = false; joystickData.id = null; joystickData.dx = 0; joystickData.dy = 0; }
+    }, {passive: false});
+
+    // --- IMAGES ---
+    const imageFiles = { player1: 'player1', player2: 'player2', player3: 'player3', enemy1: 'friend1', enemy2: 'friend2', enemy3: 'friend3', enemy4: 'friend4', enemy5: 'friend5', boss: 'boss', secretBoss1: 'secretboss1', secretBoss2: 'secretboss2', dog: 'dog', bigdog: 'bigdog', weapon: 'weapon', pizza: 'pizza' };
+    const images = {};
+    Object.keys(imageFiles).forEach(key => { const img = new Image(); img.triedJpg = false; img.src = 'images/' + imageFiles[key] + '.png'; img.onerror = () => { if (!img.triedJpg) { img.triedJpg = true; img.src = 'images/' + imageFiles[key] + '.jpg'; } }; images[key] = img; });
+
+    function drawSprite(imgElement, fallbackEmoji, x, y, size) {
+        if (imgElement && imgElement.complete && imgElement.naturalWidth > 0) ctx.drawImage(imgElement, x - size / 2, y - size / 2, size, size);
+        else { ctx.font = `${size}px Arial`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(fallbackEmoji, x, y); }
+    }
+
+    // --- GAME LOGIC ---
+    let player, enemies, projectiles, gems, pulses, chests, fires, bossPulses, bossProjectiles;
+    let gameActive = true, gameTime = 0, spawnTimer = 0, levelUpActive = false, bossTimer = 0, playerScore = 0, playerKills = 0, chestNotifyTimer = 0, chestNotifyText = "";
+
+    function triggerNotify(text, duration = 180) { chestNotifyText = text; chestNotifyTimer = duration; }
+
+    class Player {
+        constructor() {
+            this.x = WORLD_WIDTH / 2; this.y = WORLD_HEIGHT / 2; this.radius = 36; this.speed = 3.6; this.hp = 100; this.maxHp = 100;
+            this.level = 1; this.xp = 0; this.nextXp = 10;
+            this.upgrades = { dog: 1, bigdog: 0, stick: 0, coffee: 0, wifi: 0, pizza: 0, shield: 0, magnet: 0, clock: 0, tuakling: 0 };
+            this.timers = { dog: 0, bigdog: 0, wifi: 0, tuakling: 0 }; this.stickAngle = 0;
+        }
+        update() {
+            let speed = this.speed + (this.upgrades.coffee * 0.5);
+            let dx = 0; let dy = 0;
+            if (keys['w'] || keys['ArrowUp']) dy = -1; if (keys['s'] || keys['ArrowDown']) dy = 1;
+            if (keys['a'] || keys['ArrowLeft']) dx = -1; if (keys['d'] || keys['ArrowRight']) dx = 1;
+            if (joystickData.active) { dx = joystickData.dx; dy = joystickData.dy; } else if (dx !== 0 && dy !== 0) { dx *= 0.7071; dy *= 0.7071; }
+            this.x = Math.max(35, Math.min(WORLD_WIDTH - 35, this.x + dx * speed)); this.y = Math.max(35, Math.min(WORLD_HEIGHT - 35, this.y + dy * speed));
+
+            if (this.upgrades.pizza > 0 && this.hp < this.maxHp) this.hp = Math.min(this.maxHp, this.hp + (0.006 * this.upgrades.pizza));
+            let cdMult = Math.max(0.4, 1 - (this.upgrades.clock * 0.08));
+            
+            this.timers.dog++;
+            if (this.timers.dog >= Math.max(15, (70 - (this.upgrades.dog * 8)) * cdMult) && enemies.length > 0) {
+                this.timers.dog = 0; let target = enemies.reduce((min, e) => Math.hypot(e.x-this.x, e.y-this.y) < Math.hypot(min.x-this.x, min.y-this.y) ? e : min, enemies[0]);
+                projectiles.push(new DogProjectile(this.x, this.y, target, this.upgrades.dog));
+            }
+            if (this.upgrades.bigdog > 0) {
+                this.timers.bigdog++;
+                if (this.timers.bigdog >= Math.max(60, (190 - (this.upgrades.bigdog * 15)) * cdMult) && enemies.length > 0) {
+                    this.timers.bigdog = 0; let target = enemies[Math.floor(Math.random() * enemies.length)];
+                    projectiles.push(new BigDogProjectile(this.x, this.y, target, this.upgrades.bigdog));
+                }
+            }
+            if (this.upgrades.tuakling > 0) {
+                this.timers.tuakling++;
+                if (this.timers.tuakling >= Math.max(90, (240 - (this.upgrades.tuakling * 20)) * cdMult) && enemies.length > 0) {
+                    this.timers.tuakling = 0; let target = enemies[Math.floor(Math.random() * enemies.length)];
+                    projectiles.push(new TuaKlingProj(this.x, this.y, target.x, target.y, this.upgrades.tuakling));
+                }
+            }
+            if (this.upgrades.wifi > 0) {
+                this.timers.wifi++;
+                if (this.timers.wifi >= Math.max(60, (200 - (this.upgrades.wifi * 20)) * cdMult)) { this.timers.wifi = 0; pulses.push(new WifiPulse(this.x, this.y, this.upgrades.wifi)); }
+            }
+        }
+        draw() {
+            drawSprite(this.level >= 10 ? images.player3 : (this.level >= 5 ? images.player2 : images.player1), this.level >= 10 ? CONFIG.EMOJIS.playerPro : CONFIG.EMOJIS.player, this.x, this.y, 96);
+            if (this.upgrades.stick > 0) {
+                this.stickAngle += 0.04;
+                for(let i=0; i<this.upgrades.stick; i++) {
+                    let sx = this.x + Math.cos(this.stickAngle + (Math.PI*2/this.upgrades.stick)*i) * (100 + this.upgrades.stick*5);
+                    let sy = this.y + Math.sin(this.stickAngle + (Math.PI*2/this.upgrades.stick)*i) * (100 + this.upgrades.stick*5);
+                    drawSprite(images.weapon, CONFIG.ABILITIES.stick.icon, sx, sy, 64);
+                    enemies.forEach(e => { if(Math.hypot(e.x-sx, e.y-sy) < 40) e.takeDamage(0.4 * (1 + this.upgrades.stick * 0.1)); });
+                }
+            }
+            let hpx = this.x - 45; let hpy = this.y + 60;
+            ctx.fillStyle = "#1e293b"; ctx.fillRect(hpx, hpy, 90, 12); ctx.fillStyle = (this.hp/this.maxHp) > 0.4 ? "#10b981" : "#ef4444"; ctx.fillRect(hpx, hpy, 90 * Math.max(0, this.hp/this.maxHp), 12);
+            ctx.strokeStyle = "#000"; ctx.lineWidth = 1.5; ctx.strokeRect(hpx, hpy, 90, 12);
+        }
+        gainXp(amt) {
+            this.xp += amt;
+            if (this.xp >= this.nextXp) { this.xp -= this.nextXp; this.level++; this.nextXp = this.level > 15 ? Math.floor(this.nextXp * 1.8) + 120 : Math.floor(this.nextXp * 1.35) + 6; triggerLevelUp(); }
+        }
+    }
+
+    class TuaKlingProj {
+        constructor(x, y, tx, ty, level) { this.x = x; this.y = y; this.tx = tx; this.ty = ty; this.level = level; this.speed = 8; this.life = 100; let a = Math.atan2(ty-y, tx-x); this.vx = Math.cos(a)*this.speed; this.vy = Math.sin(a)*this.speed; this.dist = Math.hypot(tx-x, ty-y); this.traveled = 0; this.radius = 20; }
+        update() { this.x += this.vx; this.y += this.vy; this.traveled += this.speed; if (this.traveled >= this.dist) { this.life = 0; fires.push(new TuaKlingFire(this.tx, this.ty, this.level)); } }
+        draw() { drawSprite(null, CONFIG.EMOJIS.molotov, this.x, this.y, 40); }
+    }
+    class TuaKlingFire {
+        constructor(x, y, level) { this.x = x; this.y = y; this.level = level; this.r = 60 + (level * 15); this.dmg = 1.2 + (level * 0.8); this.life = 300; }
+        update() { this.life--; if (this.life % 15 === 0) { enemies.forEach(e => { if(Math.hypot(e.x-this.x, e.y-this.y) < this.r + e.radius) e.takeDamage(this.dmg); }); } }
+        draw() { ctx.save(); ctx.globalAlpha = Math.min(1, this.life / 60) * 0.6; ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.fillStyle = "#ea580c"; ctx.fill(); ctx.beginPath(); ctx.arc(this.x, this.y, this.r*0.7, 0, Math.PI*2); ctx.fillStyle = "#f97316"; ctx.fill(); ctx.restore(); }
+    }
+
+    class FriendEnemy {
+        constructor(x, y, t) { this.x=x; this.y=y; this.imgKey=t.imgKey; this.fallback=t.fallback; this.hp=t.hp; this.maxHp=t.hp; this.speed=t.speed; this.xpReward=t.xp; this.radius=t.radius||30; this.isBoss=t.isBoss; this.name=t.name; this.pt=0; this.st=0;}
+        update() {
+            let angle = Math.atan2(player.y - this.y, player.x - this.x); this.x += Math.cos(angle) * this.speed; this.y += Math.sin(angle) * this.speed;
+            if (Math.hypot(player.x - this.x, player.y - this.y) < player.radius + this.radius) { player.hp -= (this.isBoss ? 0.8 : 0.3) * (1 - Math.min(0.8, player.upgrades.shield * 0.12)); if (player.hp <= 0) endGame(); }
+            if (this.isBoss && this.name) {
+                if (this.name.includes(CONFIG.BOSSES.secret)) { if (++this.pt >= 180) { this.pt = 0; bossPulses.push(new BossWifiPulse(this.x, this.y, 240 + Math.min(100, player.level * 4), 12 + Math.min(20, player.level * 0.5))); } }
+                if (this.name.includes(CONFIG.BOSSES.normal)) { if (++this.st >= 150) { this.st = 0; bossProjectiles.push(new BossProjectile(this.x, this.y, player.x, player.y, 4.5 + Math.min(3, player.level * 0.1), 15 + Math.min(25, player.level * 0.6))); } }
+            }
+        }
+        draw() { drawSprite(images[this.imgKey], this.fallback, this.x, this.y, this.isBoss ? 160 : 80); if(this.hp < this.maxHp && !this.isBoss) { ctx.fillStyle = "#475569"; ctx.fillRect(this.x-20, this.y-48, 40, 6); ctx.fillStyle = "#ef4444"; ctx.fillRect(this.x-20, this.y-48, 40*(this.hp/this.maxHp), 6); } }
+        takeDamage(amt) {
+            this.hp -= amt;
+            if (this.hp <= 0) {
+                playerScore += this.isBoss ? 1500 : this.xpReward * 10;
+                playerKills++; 
+                if (this.isBoss) {
+                    chests.push(new Chest(this.x, this.y)); chests.push(new Chest(this.x-70, this.y+70)); chests.push(new Chest(this.x+70, this.y-70));
+                    for(let i=0; i<12; i++) gems.push(new Gem(this.x+(Math.random()-0.5)*140, this.y+(Math.random()-0.5)*140, 20)); triggerNotify(CONFIG.TEXT.notifyBossDead);
+                } else { gems.push(new Gem(this.x, this.y, this.xpReward)); if(Math.random()<0.05) chests.push(new Chest(this.x, this.y)); }
+                enemies = enemies.filter(e => e !== this);
+            }
+        }
+    }
+
+    class BossWifiPulse { constructor(x, y, maxR, dmg) { this.x=x; this.y=y; this.maxR=maxR; this.r=15; this.dmg=dmg; this.active=true; this.hit=false; } update() { this.r += 5; if (this.r >= this.maxR) this.active=false; else if (!this.hit && Math.hypot(player.x-this.x, player.y-this.y) < this.r+player.radius) { player.hp -= this.dmg * (1-Math.min(0.8, player.upgrades.shield*0.12)); this.hit=true; if(player.hp<=0) endGame(); } } draw() { ctx.save(); ctx.strokeStyle=`rgba(239, 68, 68, ${1-this.r/this.maxR})`; ctx.lineWidth=6; ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.stroke(); ctx.restore(); } }
+    class BossProjectile { constructor(x, y, tx, ty, spd, dmg) { this.x=x; this.y=y; this.dmg=dmg; this.r=28; this.life=240; let a=Math.atan2(ty-y, tx-x); this.vx=Math.cos(a)*spd; this.vy=Math.sin(a)*spd; } update() { this.life--; this.x+=this.vx; this.y+=this.vy; if (Math.hypot(player.x-this.x, player.y-this.y) < player.radius+this.r) { player.hp -= this.dmg * (1-Math.min(0.8, player.upgrades.shield*0.12)); this.life=0; if(player.hp<=0) endGame(); } } draw() { drawSprite(images.bigdog, "😈", this.x, this.y, 70); } }
+    class DogProjectile { constructor(x, y, target, level) { this.x=x; this.y=y; this.target=target; this.speed=6+level; this.damage=5+(level*3.5); this.radius=24; this.life=180; } update() { this.life--; if (enemies.includes(this.target)) { let angle = Math.atan2(this.target.y - this.y, this.target.x - this.x); this.x += Math.cos(angle) * this.speed; this.y += Math.sin(angle) * this.speed; } else this.x += this.speed; } draw() { drawSprite(images.dog, CONFIG.ABILITIES.dog.icon, this.x, this.y, 56); } }
+    class BigDogProjectile { constructor(x, y, target, level) { this.x=x; this.y=y; this.speed=4.5+(level*0.5); this.damage=15+(level*8); this.radius=36; this.life=220; this.pierce=2+level; this.hit=new Set(); let a=Math.atan2(target.y-y, target.x-x); this.vx=Math.cos(a)*this.speed; this.vy=Math.sin(a)*this.speed; this.dist=0; } update() { this.life--; this.x+=this.vx; this.y+=this.vy; } draw() { drawSprite(images.bigdog, CONFIG.ABILITIES.bigdog.icon, this.x, this.y, 90); } }
+    class WifiPulse { constructor(x, y, level) { this.x=x; this.y=y; this.maxR=130+(level*50); this.r=15; this.dmg=4+(level*2); this.kb=9+level; this.active=true; this.hit=new Set(); } update() { this.r+=8; if(this.r>=this.maxR) this.active=false; else { enemies.forEach(e => { if(Math.hypot(e.x-this.x, e.y-this.y)<this.r && !this.hit.has(e)) { e.takeDamage(this.dmg); this.hit.add(e); let a=Math.atan2(e.y-this.y, e.x-this.x); e.x+=Math.cos(a)*this.kb; e.y+=Math.sin(a)*this.kb; }});}} draw() { ctx.save(); ctx.strokeStyle=`rgba(56, 189, 248, ${1-this.r/this.maxR})`; ctx.lineWidth=8; ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.stroke(); ctx.restore(); } }
+    
+    class Gem { constructor(x,y,val){this.x=x;this.y=y;this.val=val;} update() { let dist = Math.hypot(player.x-this.x, player.y-this.y); if(dist < 150 + (player.upgrades.magnet * 60)) { let angle=Math.atan2(player.y-this.y, player.x-this.x); this.x+=Math.cos(angle)*8; this.y+=Math.sin(angle)*8; } if(dist < player.radius + 5) { player.gainXp(this.val); gems=gems.filter(g=>g!==this); } } draw() { drawSprite(images.pizza, CONFIG.EMOJIS.pizza, this.x, this.y, 48); } }
+    class Chest { constructor(x,y){this.x=x;this.y=y;this.pulse=0;} update() { this.pulse+=0.05; let dist = Math.hypot(player.x-this.x, player.y-this.y); if(dist < 180 + (player.upgrades.magnet * 60)) { let angle=Math.atan2(player.y-this.y, player.x-this.x); this.x+=Math.cos(angle)*9; this.y+=Math.sin(angle)*9; } if(dist < player.radius + 15) { openChest(); chests=chests.filter(c=>c!==this); } } draw() { ctx.strokeStyle = `rgba(241,196,15,${0.3+Math.sin(this.pulse)*0.2})`; ctx.lineWidth=4; ctx.beginPath(); ctx.arc(this.x, this.y, 35+Math.sin(this.pulse)*5, 0, Math.PI*2); ctx.stroke(); drawSprite(null, CONFIG.EMOJIS.chest, this.x, this.y, 50); } }
+
+    function openChest() {
+        if(Math.random()<0.12){ player.hp=player.maxHp; triggerNotify(CONFIG.TEXT.notifyBattery); return; }
+        if(Math.random()<0.25){ let xp=Math.max(30, Math.round(player.nextXp*0.4)); player.gainXp(xp); triggerNotify(`${CONFIG.TEXT.notifyPizzaJackpot} (+${xp} XP)`); return; }
+        let keys = Object.keys(player.upgrades); let ch = keys[Math.floor(Math.random()*keys.length)]; player.upgrades[ch]++; triggerNotify(`${CONFIG.TEXT.notifyChestUpgrade} ${CONFIG.ABILITIES[ch].name} (Lv ${player.upgrades[ch]})!`); playerScore+=500;
+    }
+
+    function getEnemyPool() {
+        return [
+            { imgKey: "enemy1", fallback: CONFIG.EMOJIS.enemy1, hp: 8, speed: 1.3, xp: 1, minLevel: 1 },  
+            { imgKey: "enemy2", fallback: CONFIG.EMOJIS.enemy2, hp: 15, speed: 2.0, xp: 2, minLevel: 3 }, 
+            { imgKey: "enemy4", fallback: CONFIG.EMOJIS.enemy4, hp: 10, speed: 2.7, xp: 2, minLevel: 5 },
+            { imgKey: "enemy3", fallback: CONFIG.EMOJIS.enemy3, hp: 45, speed: 1.5, xp: 4, minLevel: 7 }, 
+            { imgKey: "enemy5", fallback: CONFIG.EMOJIS.enemy5, hp: 90, speed: 1.0, xp: 6, minLevel: 9 }
+        ];
+    }
+
+    function spawnEnemy() {
+        let spawnRate = Math.max(2, 45 - (player.level * 1.5));
+        
+        if(++spawnTimer >= spawnRate) {
+            spawnTimer = 0;
+            let d = isMobile ? (500 / Math.max(0.2, zoom)) : (750 / Math.max(0.2, zoom));
+            let a=Math.random()*Math.PI*2, x=Math.max(40,Math.min(WORLD_WIDTH-40,player.x+Math.cos(a)*d)), y=Math.max(40,Math.min(WORLD_HEIGHT-40,player.y+Math.sin(a)*d));
+            let pool = getEnemyPool().filter(e => player.level >= e.minLevel); if(!pool.length) pool=[getEnemyPool()[0]];
+            let type = pool[Math.floor(Math.random()*pool.length)];
+            
+            let hpScale = 1 + (player.level * 0.1) + Math.pow(1.08, Math.max(0, player.level - 15));
+            let spdScale = 1 + (player.level * 0.03);
+
+            enemies.push(new FriendEnemy(x,y,{...type, hp: Math.round(type.hp * hpScale), speed: type.speed * spdScale}));
+        }
+    }
+
+    function spawnBoss() {
+        let dist = isMobile ? (550 / Math.max(0.6, zoom)) : (800 / Math.max(0.6, zoom));
+        let a = Math.random()*Math.PI*2, x=Math.max(120,Math.min(WORLD_WIDTH-120,player.x+Math.cos(a)*dist)), y=Math.max(120,Math.min(WORLD_HEIGHT-120,player.y+Math.sin(a)*dist));
+        let isSecret = Math.random() < Math.min(0.40, 0.02 + (player.level>15 ? (player.level-15)*0.02 : 0));
+        
+        let hpScale = (1 + player.level * 0.2) * Math.pow(1.15, Math.max(0, player.level - 10));
+        let finalHp = Math.round((isSecret?320:200) * hpScale);
+
+        let boss = new FriendEnemy(x,y, { imgKey: isSecret?"secretBoss1":"boss", fallback: isSecret?CONFIG.EMOJIS.secretBoss:CONFIG.EMOJIS.boss, hp: finalHp, speed: Math.min(5.5, 1.25*(1+player.level*0.04)), xp: isSecret?300:120, radius: isSecret?75:65, isBoss: true, name: isSecret?`${CONFIG.BOSSES.secret} (Lv ${player.level})`:`${CONFIG.BOSSES.normal} (Lv ${player.level})` });
+        enemies.push(boss); triggerNotify(CONFIG.TEXT.notifyBoss, 240);
+    }
+
+    function triggerLevelUp() {
+        levelUpActive = true; document.getElementById('levelup-screen').classList.remove('hidden');
+        let upgKeys = Object.keys(CONFIG.ABILITIES).sort(() => 0.5 - Math.random());
+        let box = document.getElementById('choices-box'); box.innerHTML = "";
+        upgKeys.slice(0, 3).forEach(id => {
+            let info = CONFIG.ABILITIES[id];
+            let c = document.createElement('div'); c.className = "card"; 
+            c.onclick = () => { player.upgrades[id]++; levelUpActive=false; document.getElementById('levelup-screen').classList.add('hidden'); };
+            c.innerHTML = `<div class="card-icon">${info.icon}</div><div class="card-title">${info.name} (Lv ${player.upgrades[id]+1})</div><div class="card-desc">${info.desc}</div>`; box.appendChild(c);
+        });
+    }
+
+    function resetGame() {
+        player = new Player(); enemies = []; projectiles = []; gems = []; chests = []; pulses = []; fires = []; bossPulses = []; bossProjectiles = [];
+        gameTime = 0; spawnTimer = 0; bossTimer = 5400; playerScore = 0; playerKills = 0; gameActive = true; levelUpActive = false;
+        document.getElementById('gameover-screen').classList.add('hidden'); document.getElementById('levelup-screen').classList.add('hidden');
+        document.getElementById('submit-section').style.display = 'flex'; document.getElementById('leaderboard-box').classList.add('hidden'); document.getElementById('player-name-input').value = "";
+    }
+
+    function endGame() {
+        gameActive = false; document.getElementById('gameover-screen').classList.remove('hidden');
+        let mins = Math.floor(gameTime/60); let secs = Math.floor(gameTime%60).toString().padStart(2,'0');
+        document.getElementById('gameover-stats').innerText = `Time: ${mins}:${secs} | Level: ${player.level} | Kills: ${playerKills}`;
+        document.getElementById('gameover-score').innerText = `Final Score: ${playerScore}`;
+        loadLeaderboard(); 
+    }
+
+    // --- LOCAL SCORE LOGIC (LocalStorage) ---
+    function saveScore() {
+        let name = document.getElementById('player-name-input').value.trim() || "Anonymous";
+        let board = JSON.parse(localStorage.getItem('pherd_leaderboard')) || [];
+        
+        board.push({ name: name, score: playerScore, kills: playerKills, time: gameTime });
+        board.sort((a, b) => b.score - a.score); 
+        board = board.slice(0, 10); 
+        
+        localStorage.setItem('pherd_leaderboard', JSON.stringify(board));
+        
+        document.getElementById('submit-section').style.display = 'none';
+        loadLeaderboard();
+    }
+
+    function deleteScore(index) {
+        let board = JSON.parse(localStorage.getItem('pherd_leaderboard')) || [];
+        board.splice(index, 1); // Remove selected entry
+        localStorage.setItem('pherd_leaderboard', JSON.stringify(board));
+        loadLeaderboard(); // Refresh panel UI
+    }
+
+    function loadLeaderboard() {
+        let board = JSON.parse(localStorage.getItem('pherd_leaderboard')) || [];
+        let listHtml = "";
+        
+        if (board.length > 0) {
+            document.getElementById('leaderboard-box').classList.remove('hidden');
+            board.forEach((entry, index) => {
+                listHtml += `
+                    <div class="lb-entry">
+                        <span class="lb-rank">#${index + 1}</span>
+                        <span class="lb-name">${entry.name}</span>
+                        <span class="lb-score">${entry.score} pts</span>
+                        <span class="lb-kills">(${entry.kills} 💀)</span>
+                        <span class="lb-del" onclick="deleteScore(${index})">❌</span>
+                    </div>`;
+            });
+            document.getElementById('leaderboard-list').innerHTML = listHtml;
+        } else {
+            // Hide box completely if all entries are deleted
+            document.getElementById('leaderboard-box').classList.add('hidden');
+        }
+    }
+
+    function drawMobileJoystick() {
+        if (isMobile && joystickData.active) {
+            ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); 
+            ctx.beginPath(); ctx.arc(joystickData.startX, joystickData.startY, 50, 0, Math.PI*2); ctx.fillStyle = "rgba(255, 255, 255, 0.1)"; ctx.fill(); ctx.strokeStyle = "rgba(255, 255, 255, 0.4)"; ctx.lineWidth = 2; ctx.stroke();
+            ctx.beginPath(); ctx.arc(joystickData.startX + joystickData.dx * 30, joystickData.startY + joystickData.dy * 30, 25, 0, Math.PI*2); ctx.fillStyle = "rgba(255, 255, 255, 0.5)"; ctx.fill(); ctx.restore();
+        }
+    }
+
+    function gameLoop() {
+        requestAnimationFrame(gameLoop); 
+        
+        if (!gameActive || levelUpActive) return; 
+
+        gameTime += 1/60; if(Math.floor(gameTime*60)%60===0) playerScore+=5;
+        
+        player.update(); spawnEnemy();
+        
+        if(--bossTimer <= 0) { 
+            spawnBoss(); 
+            let nextBossTime = Math.max(10, 90 - (player.level * 2.5));
+            bossTimer = Math.round(nextBossTime * 60); 
+        }
+
+        pulses.forEach(p => p.update()); pulses = pulses.filter(p => p.active);
+        bossPulses.forEach(p => p.update()); bossPulses = bossPulses.filter(p => p.active);
+        bossProjectiles.forEach(p => p.update()); bossProjectiles = bossProjectiles.filter(p => p.life > 0);
+        fires.forEach(f => f.update()); fires = fires.filter(f => f.life > 0);
+
+        projectiles.forEach(p => {
+            p.update();
+            if (!(p instanceof TuaKlingProj)) { 
+                enemies.forEach(e => {
+                    if(Math.hypot(e.x-p.x, e.y-p.y) < e.radius+p.radius) {
+                        if (p instanceof BigDogProjectile) { if(!p.hit.has(e)){ e.takeDamage(p.damage); p.hit.add(e); if(--p.pierce<=0) p.life=0; } }
+                        else { e.takeDamage(p.damage); p.life=0; }
+                    }
+                });
+            }
+        });
+        projectiles = projectiles.filter(p => p.life > 0);
+        enemies.forEach(e => e.update()); gems.forEach(g => g.update()); chests.forEach(c => c.update());
+
+        ctx.fillStyle = "#1e293b"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        ctx.save(); ctx.translate(canvas.width/2, canvas.height/2); ctx.scale(zoom, zoom); ctx.translate(-player.x, -player.y);
+        ctx.fillStyle = "#2d5a1e"; ctx.fillRect(0, 0, WORLD_WIDTH, WORLD_HEIGHT); 
+        
+        ctx.strokeStyle="rgba(74,222,128,0.1)"; ctx.lineWidth=2; ctx.beginPath();
+        for(let i=0; i<WORLD_WIDTH; i+=180) { ctx.moveTo(i,0); ctx.lineTo(i,WORLD_HEIGHT); }
+        for(let i=0; i<WORLD_HEIGHT; i+=180) { ctx.moveTo(0,i); ctx.lineTo(WORLD_WIDTH,i); }
+        ctx.stroke();
+
+        fires.forEach(f=>f.draw()); gems.forEach(g=>g.draw()); chests.forEach(c=>c.draw()); 
+        pulses.forEach(p=>p.draw()); bossPulses.forEach(p=>p.draw()); projectiles.forEach(p=>p.draw()); bossProjectiles.forEach(p=>p.draw()); 
+        enemies.forEach(e=>e.draw()); player.draw();
+        ctx.restore();
+
+        // HUD
+        ctx.fillStyle = "#1e293b"; ctx.fillRect(0,0,canvas.width,24); ctx.fillStyle = "#3b82f6"; ctx.fillRect(0,0,canvas.width*(player.xp/player.nextXp),24);
+        ctx.fillStyle = "white"; ctx.font = "bold 15px Arial"; ctx.textAlign="center"; ctx.textBaseline="middle"; ctx.fillText(`LV ${player.level}`, canvas.width/2, 12);
+        ctx.font = "bold 32px Arial"; ctx.fillText(`${Math.floor(gameTime/60)}:${Math.floor(gameTime%60).toString().padStart(2,'0')}`, canvas.width/2, 62);
+        ctx.textAlign="right"; ctx.font="bold 24px Arial"; ctx.fillStyle="#4ade80"; ctx.fillText(`Score: ${playerScore}`, canvas.width-20, 56);
+        ctx.fillStyle="#f87171"; ctx.font="bold 16px Arial"; ctx.fillText(`Kills: ${playerKills} 💀`, canvas.width-20, 80);
+
+        let activeBoss = enemies.find(e=>e.isBoss);
+        if(activeBoss) {
+            let bw=300, bh=15, bx=(canvas.width-bw)/2, by=80;
+            ctx.fillStyle = "white"; ctx.font = "bold 16px Arial"; ctx.textAlign = "center"; ctx.fillText(activeBoss.name, canvas.width/2, by - 10);
+            ctx.fillStyle="#0f172a"; ctx.fillRect(bx,by,bw,bh); ctx.fillStyle="#dc2626"; ctx.fillRect(bx,by,bw*(Math.max(0,activeBoss.hp/activeBoss.maxHp)),bh);
+            ctx.strokeStyle="#fff"; ctx.lineWidth=2; ctx.strokeRect(bx,by,bw,bh);
+        }
+
+        if(chestNotifyTimer-->0) { ctx.fillStyle="rgba(241,196,15,0.95)"; let bw=320, bh=40, bx=(canvas.width-bw)/2, by=110; ctx.fillRect(bx, by, bw, bh); ctx.fillStyle="#0f172a"; ctx.font="bold 15px Arial"; ctx.textAlign="center"; ctx.fillText(chestNotifyText, canvas.width/2, by+bh/2); }
+
+        drawMobileJoystick(); 
+    }
+
+    resetGame(); requestAnimationFrame(gameLoop);
+</script>
+</body>
+</html>
