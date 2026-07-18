@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pherd Sus - คั่วกลิ้ง</title>
+    <title>Pherd Sus - คั่วกลิ้ง & เชวี่</title>
     <style>
         body {
             margin: 0; padding: 0; background-color: #0d0d0d; color: #ffffff;
@@ -33,6 +33,7 @@
             border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.4); margin-top: 10px;
         }
         .btn-green { background-color: #10b981; }
+        
         /* Default for PC (3x Scale) */
         .choices-container { 
             display: flex; gap: 25px; margin-top: 20px; flex-wrap: wrap; 
@@ -78,6 +79,13 @@
         .lb-kills { color: #f87171; font-size: 12px; margin-left: 5px; }
         .lb-del { color: #ef4444; cursor: pointer; font-size: 12px; margin-left: 10px; padding: 2px 5px; background: rgba(239, 68, 68, 0.1); border-radius: 4px; }
         .lb-del:hover { background: rgba(239, 68, 68, 0.3); }
+        
+        /* Killer Info Style */
+        #killer-container {
+            display: flex; flex-direction: column; align-items: center; margin-bottom: 15px; 
+            background: rgba(15, 23, 42, 0.9); padding: 15px 25px; border-radius: 16px; 
+            border: 2px solid #ef4444; min-width: 250px; box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+        }
     </style>
 </head>
 <body>
@@ -90,7 +98,17 @@
 
 <div id="ui-container">
     <div id="gameover-screen" class="overlay hidden">
-        <h2 id="gameover-title">ขิตแล้วไอชาย!</h2>
+        <h2 id="gameover-title" style="margin-bottom: 10px;">ขิตแล้วไอชาย!</h2>
+        
+        <!-- Killer Info Container -->
+        <div id="killer-container" class="hidden">
+            <span style="color: #ef4444; font-weight: bold; margin-bottom: 10px; font-size: 14px; letter-spacing: 1px;">KILLED BY</span>
+            <img id="killer-image" src="" style="width: 80px; height: 80px; object-fit: contain; display: none;">
+            <div id="killer-emoji" style="font-size: 70px; display: none; line-height: 1;"></div>
+            <p id="killer-name" style="color: #fff; font-weight: bold; font-size: 18px; margin: 10px 0 5px 0;">Enemy Name</p>
+            <p id="killer-desc" style="color: #facc15; font-size: 14px; margin: 0; text-align: center; max-width: 300px;">[ใส่คำอธิบายตรงนี้ / Add description here]</p>
+        </div>
+
         <p id="gameover-stats" style="font-size: 18px; margin-bottom: 5px; color: #94a3b8; text-align: center;"></p>
         <p id="gameover-score" style="font-size: 24px; font-weight: bold; margin-bottom: 15px; color: #4ade80;"></p>
         
@@ -131,7 +149,8 @@
             shield: { name: "เกาะ", desc: "กันดาเมจ", icon: "🛡️" },
             magnet: { name: "เหล็ก", desc: "ดูด", icon: "🧲"},
             clock: { name: "นาฬิกาไอแซ็ก", desc: "ตีไวจัด", icon: "⌚" },
-            tuakling: { name: "ตั่วกลิ้ง ไอเชฟ", desc: "ไอเชฟก็ต้องอยู่ในครัวดิวะ", icon: "🔥"}
+            tuakling: { name: "ตั่วกลิ้ง ไอเชฟ", desc: "ไอเชฟก็ต้องอยู่ในครัวดิวะ", icon: "🔥"},
+            chevycharger: { name: "สายชาร์จเชวี่", desc: "ระเบิด", icon: "⚡" } 
         },
         BOSSES: { normal: "บ๊ะ Okkotsu", secret1: "Super Okkotsax (NotBlack)", secret2: "True Void Demon (Black???%)" },
         TEXT: {
@@ -201,10 +220,9 @@
         enemy1: 'friend1', enemy2: 'friend2', enemy3: 'friend3', enemy4: 'friend4', enemy5: 'friend5', 
         boss: 'boss', secretBoss1: 'secretboss1', secretBoss2: 'secretboss2', bossProj: 'bossprojectile',
         dog: 'dog', bigdog: 'bigdog', weapon: 'weapon', pizza: 'pizza', tuakling: 'kuakling',
-        // Optional Customization keys for ability menus (ab_dog.png, ab_coffee.png, etc.)
         ab_dog: 'ab_dog', ab_bigdog: 'ab_bigdog', ab_stick: 'ab_stick', ab_coffee: 'ab_coffee',
         ab_wifi: 'ab_wifi', ab_pizza: 'ab_pizza', ab_shield: 'ab_shield', ab_magnet: 'ab_magnet',
-        ab_clock: 'ab_clock', ab_tuakling: 'ab_kuakling'
+        ab_clock: 'ab_clock', ab_tuakling: 'ab_kuakling', ab_chevycharger: 'ab_chevycharger'
     };
     const images = {};
     Object.keys(imageFiles).forEach(key => { const img = new Image(); img.triedJpg = false; img.src = 'images/' + imageFiles[key] + '.png'; img.onerror = () => { if (!img.triedJpg) { img.triedJpg = true; img.src = 'images/' + imageFiles[key] + '.jpg'; } }; images[key] = img; });
@@ -215,7 +233,7 @@
     }
 
     // --- GAME LOGIC ---
-    let player, enemies, projectiles, gems, pulses, chests, fires, bossPulses, bossProjectiles;
+    let player, enemies, projectiles, gems, pulses, chevyPulses, chests, fires, bossPulses, bossProjectiles;
     let gameActive = true, gameTime = 0, spawnTimer = 0, levelUpActive = false, bossTimer = 0, playerScore = 0, playerKills = 0, chestNotifyTimer = 0, chestNotifyText = "";
 
     function triggerNotify(text, duration = 180) { chestNotifyText = text; chestNotifyTimer = duration; }
@@ -224,8 +242,8 @@
         constructor() {
             this.x = WORLD_WIDTH / 2; this.y = WORLD_HEIGHT / 2; this.radius = 36; this.speed = 3.6; this.hp = 100; this.maxHp = 100;
             this.level = 1; this.xp = 0; this.nextXp = 10;
-            this.upgrades = { dog: 1, bigdog: 0, stick: 0, coffee: 0, wifi: 0, pizza: 0, shield: 0, magnet: 0, clock: 0, tuakling: 0 };
-            this.timers = { dog: 0, bigdog: 0, wifi: 0, tuakling: 0 }; this.stickAngle = 0;
+            this.upgrades = { dog: 1, bigdog: 0, stick: 0, coffee: 0, wifi: 0, pizza: 0, shield: 0, magnet: 0, clock: 0, tuakling: 0, chevycharger: 0 };
+            this.timers = { dog: 0, bigdog: 0, wifi: 0, tuakling: 0, chevycharger: 0 }; this.stickAngle = 0;
         }
         update() {
             let speed = this.speed + (this.upgrades.coffee * 0.5);
@@ -261,6 +279,13 @@
                 this.timers.wifi++;
                 if (this.timers.wifi >= Math.max(60, (200 - (this.upgrades.wifi * 20)) * cdMult)) { this.timers.wifi = 0; pulses.push(new WifiPulse(this.x, this.y, this.upgrades.wifi)); }
             }
+            if (this.upgrades.chevycharger > 0) {
+                this.timers.chevycharger++;
+                if (this.timers.chevycharger >= Math.max(70, (280 - (this.upgrades.chevycharger * 35)) * cdMult)) {
+                    this.timers.chevycharger = 0;
+                    chevyPulses.push(new ChevyPulse(this, this.upgrades.chevycharger));
+                }
+            }
         }
         draw() {
             drawSprite(this.level >= 10 ? images.player3 : (this.level >= 5 ? images.player2 : images.player1), this.level >= 10 ? CONFIG.EMOJIS.playerPro : CONFIG.EMOJIS.player, this.x, this.y, 96);
@@ -283,12 +308,49 @@
                 this.xp -= this.nextXp; 
                 this.level++; 
                 this.nextXp = this.level > 15 ? Math.floor(this.nextXp * 1.8) + 120 : Math.floor(this.nextXp * 1.35) + 6; 
-                
-                // Restore 30% of max HP on level up, ensuring it doesn't exceed maxHp
-                this.hp = Math.min(this.maxHp, this.hp + (this.maxHp * 0.30));
-                
+                this.hp = Math.min(this.maxHp, this.hp + (this.maxHp * 0.30)); 
                 triggerLevelUp(); 
             }
+        }
+    }
+
+    class ChevyPulse {
+        constructor(p, level) {
+            this.p = p; 
+            this.maxR = 150 + (level * 50); 
+            this.dmg = 20 + (level * 15);
+            this.active = true;
+            this.hit = new Set();
+            this.life = 15; 
+        }
+        update() {
+            this.life--;
+            if (this.life <= 0) this.active = false;
+            let currentR = this.maxR * (1 - (this.life / 15)); 
+            enemies.forEach(e => {
+                if (Math.hypot(e.x - this.p.x, e.y - this.p.y) < currentR + e.radius && !this.hit.has(e)) {
+                    e.takeDamage(this.dmg);
+                    this.hit.add(e);
+                }
+            });
+        }
+        draw() {
+            ctx.save();
+            ctx.globalCompositeOperation = "lighter";
+            let alpha = this.life / 15;
+            let currentR = this.maxR * (1 - alpha);
+            
+            ctx.beginPath();
+            ctx.arc(this.p.x, this.p.y, currentR, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(220, 255, 255, ${alpha * 0.6})`;
+            ctx.fill();
+            
+            ctx.beginPath();
+            ctx.arc(this.p.x, this.p.y, currentR, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(100, 220, 255, ${alpha})`;
+            ctx.lineWidth = 15;
+            ctx.stroke();
+            ctx.restore();
         }
     }
 
@@ -304,10 +366,20 @@
     }
 
     class FriendEnemy {
-        constructor(x, y, t) { this.x=x; this.y=y; this.imgKey=t.imgKey; this.fallback=t.fallback; this.hp=t.hp; this.maxHp=t.hp; this.speed=t.speed; this.xpReward=t.xp; this.radius=t.radius||30; this.isBoss=t.isBoss; this.name=t.name; this.pt=0; this.st=0;}
+        constructor(x, y, t) { 
+            this.x=x; this.y=y; this.imgKey=t.imgKey; this.fallback=t.fallback; 
+            this.hp=t.hp; this.maxHp=t.hp; this.speed=t.speed; this.xpReward=t.xp; 
+            this.radius=t.radius||30; this.isBoss=t.isBoss; 
+            this.name=t.name || "ศัตรูทั่วไป"; 
+            this.desc=t.desc || "มันแค่เดินมาชนคุณจนขิต"; // ADDED DESCRIPTION PROP
+            this.pt=0; this.st=0;
+        }
         update() {
             let angle = Math.atan2(player.y - this.y, player.x - this.x); this.x += Math.cos(angle) * this.speed; this.y += Math.sin(angle) * this.speed;
-            if (Math.hypot(player.x - this.x, player.y - this.y) < player.radius + this.radius) { player.hp -= (this.isBoss ? 0.8 : 0.3) * (1 - Math.min(0.8, player.upgrades.shield * 0.12)); if (player.hp <= 0) endGame(); }
+            if (Math.hypot(player.x - this.x, player.y - this.y) < player.radius + this.radius) { 
+                player.hp -= (this.isBoss ? 0.8 : 0.3) * (1 - Math.min(0.8, player.upgrades.shield * 0.12)); 
+                if (player.hp <= 0) endGame(this);
+            }
             if (this.isBoss && this.name) {
                 if (this.name.includes(CONFIG.BOSSES.secret2)) { if (++this.pt >= 140) { this.pt = 0; bossPulses.push(new BossWifiPulse(this.x, this.y, 240 + Math.min(100, player.level * 4), 12 + Math.min(20, player.level * 0.5))); } }
                 if (this.name.includes(CONFIG.BOSSES.secret1) || this.name.includes(CONFIG.BOSSES.normal) || this.name.includes(CONFIG.BOSSES.secret2)) { if (++this.st >= 150) { this.st = 0; bossProjectiles.push(new BossProjectile(this.x, this.y, player.x, player.y, 4.5 + Math.min(3, player.level * 0.1), 15 + Math.min(25, player.level * 0.6))); } }
@@ -328,10 +400,8 @@
         }
     }
 
-    class BossWifiPulse { constructor(x, y, maxR, dmg) { this.x=x; this.y=y; this.maxR=maxR; this.r=15; this.dmg=dmg; this.active=true; this.hit=false; } update() { this.r += 5; if (this.r >= this.maxR) this.active=false; else if (!this.hit && Math.hypot(player.x-this.x, player.y-this.y) < this.r+player.radius) { player.hp -= this.dmg * (1-Math.min(0.8, player.upgrades.shield*0.12)); this.hit=true; if(player.hp<=0) endGame(); } } draw() { ctx.save(); ctx.strokeStyle=`rgba(239, 68, 68, ${1-this.r/this.maxR})`; ctx.lineWidth=6; ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.stroke(); ctx.restore(); } }
-    
-    // FIXED: Boss projectile now uses separate sprite layout
-    class BossProjectile { constructor(x, y, tx, ty, spd, dmg) { this.x=x; this.y=y; this.dmg=dmg; this.r=24; this.life=240; let a=Math.atan2(ty-y, tx-x); this.vx=Math.cos(a)*spd; this.vy=Math.sin(a)*spd; } update() { this.life--; this.x+=this.vx; this.y+=this.vy; if (Math.hypot(player.x-this.x, player.y-this.y) < player.radius+this.r) { player.hp -= this.dmg * (1-Math.min(0.8, player.upgrades.shield*0.12)); this.life=0; if(player.hp<=0) endGame(); } } draw() { drawSprite(images.bossProj, CONFIG.EMOJIS.bossProj, this.x, this.y, 60); } }
+    class BossWifiPulse { constructor(x, y, maxR, dmg) { this.x=x; this.y=y; this.maxR=maxR; this.r=15; this.dmg=dmg; this.active=true; this.hit=false; } update() { this.r += 5; if (this.r >= this.maxR) this.active=false; else if (!this.hit && Math.hypot(player.x-this.x, player.y-this.y) < this.r+player.radius) { player.hp -= this.dmg * (1-Math.min(0.8, player.upgrades.shield*0.12)); this.hit=true; if(player.hp<=0) endGame('BossWifi'); } } draw() { ctx.save(); ctx.strokeStyle=`rgba(239, 68, 68, ${1-this.r/this.maxR})`; ctx.lineWidth=6; ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI*2); ctx.stroke(); ctx.restore(); } }
+    class BossProjectile { constructor(x, y, tx, ty, spd, dmg) { this.x=x; this.y=y; this.dmg=dmg; this.r=24; this.life=240; let a=Math.atan2(ty-y, tx-x); this.vx=Math.cos(a)*spd; this.vy=Math.sin(a)*spd; } update() { this.life--; this.x+=this.vx; this.y+=this.vy; if (Math.hypot(player.x-this.x, player.y-this.y) < player.radius+this.r) { player.hp -= this.dmg * (1-Math.min(0.8, player.upgrades.shield*0.12)); this.life=0; if(player.hp<=0) endGame('BossProj'); } } draw() { drawSprite(images.bossProj, CONFIG.EMOJIS.bossProj, this.x, this.y, 60); } }
     
     class DogProjectile { constructor(x, y, target, level) { this.x=x; this.y=y; this.target=target; this.speed=6+level; this.damage=5+(level*3.5); this.radius=24; this.life=180; } update() { this.life--; if (enemies.includes(this.target)) { let angle = Math.atan2(this.target.y - this.y, this.target.x - this.x); this.x += Math.cos(angle) * this.speed; this.y += Math.sin(angle) * this.speed; } else this.x += this.speed; } draw() { drawSprite(images.dog, CONFIG.ABILITIES.dog.icon, this.x, this.y, 56); } }
     class BigDogProjectile { constructor(x, y, target, level) { this.x=x; this.y=y; this.speed=4.5+(level*0.5); this.damage=15+(level*8); this.radius=36; this.life=220; this.pierce=2+level; this.hit=new Set(); let a=Math.atan2(target.y-y, target.x-x); this.vx=Math.cos(a)*this.speed; this.vy=Math.sin(a)*this.speed; } update() { this.life--; this.x+=this.vx; this.y+=this.vy; } draw() { drawSprite(images.bigdog, CONFIG.ABILITIES.bigdog.icon, this.x, this.y, 90); } }
@@ -346,13 +416,14 @@
         let keys = Object.keys(player.upgrades); let ch = keys[Math.floor(Math.random()*keys.length)]; player.upgrades[ch]++; triggerNotify(`${CONFIG.TEXT.notifyChestUpgrade} ${CONFIG.ABILITIES[ch].name} (Lv ${player.upgrades[ch]})!`); playerScore+=500;
     }
 
+    // UPDATED ENEMY POOL WITH NAMES AND DESCRIPTIONS
     function getEnemyPool() {
         return [
-            { imgKey: "enemy1", fallback: CONFIG.EMOJIS.enemy1, hp: 8, speed: 1.3, xp: 1, minLevel: 1 },  
-            { imgKey: "enemy2", fallback: CONFIG.EMOJIS.enemy2, hp: 15, speed: 2.0, xp: 2, minLevel: 3 }, 
-            { imgKey: "enemy4", fallback: CONFIG.EMOJIS.enemy4, hp: 10, speed: 2.7, xp: 2, minLevel: 5 },
-            { imgKey: "enemy3", fallback: CONFIG.EMOJIS.enemy3, hp: 45, speed: 1.5, xp: 4, minLevel: 7 }, 
-            { imgKey: "enemy5", fallback: CONFIG.EMOJIS.enemy5, hp: 90, speed: 1.0, xp: 6, minLevel: 9 }
+            { imgKey: "enemy1", fallback: CONFIG.EMOJIS.enemy1, hp: 8, speed: 1.3, xp: 1, minLevel: 1, name: "เปิดตูด", desc: "โดนเปิดตูดไม่รู้ตัว" },  
+            { imgKey: "enemy2", fallback: CONFIG.EMOJIS.enemy2, hp: 15, speed: 2.0, xp: 2, minLevel: 3, name: "Gilgapherd", desc: "ร่างนี้ไม่มีอินูม่า แต่มีหมาเผิด" }, 
+            { imgKey: "enemy4", fallback: CONFIG.EMOJIS.enemy4, hp: 10, speed: 2.7, xp: 2, minLevel: 5, name: "เดียวตกใจ", desc: "ตกใจเลยวิ่งมาหา" },
+            { imgKey: "enemy3", fallback: CONFIG.EMOJIS.enemy3, hp: 45, speed: 1.5, xp: 4, minLevel: 7, name: "อองอาบน้ำไม่ทันแห้ง", desc: "กูก็งง" }, 
+            { imgKey: "enemy5", fallback: CONFIG.EMOJIS.enemy5, hp: 90, speed: 1.0, xp: 6, minLevel: 9, name: "ไม่นะเชฟ", desc: "ลูกมึงเป็นคนยังไงวะ" }
         ];
     }
 
@@ -373,57 +444,35 @@
         }
     }
 
-    // FIXED: Dual Secret Boss generation framework
     function spawnBoss() {
         let dist = isMobile ? (550 / Math.max(0.6, zoom)) : (800 / Math.max(0.6, zoom));
         let a = Math.random()*Math.PI*2, x=Math.max(120,Math.min(WORLD_WIDTH-120,player.x+Math.cos(a)*dist)), y=Math.max(120,Math.min(WORLD_HEIGHT-120,player.y+Math.sin(a)*dist));
         
         let bossType = "normal";
-        
-        // 1st Check: Secret Boss 2 spawns after Level 10 with increasing scaling probability
         if (player.level >= 10) {
             let secret2Chance = Math.min(0.65, (player.level - 10) * 0.06); 
             if (Math.random() < secret2Chance) bossType = "secret2";
         }
-        
-        // 2nd Check: Flat variant roll for Secret Boss 1 if Secret Boss 2 condition did not clear
-        if (bossType === "normal" && Math.random() < 0.25) {
-            bossType = "secret1";
-        }
+        if (bossType === "normal" && Math.random() < 0.25) { bossType = "secret1"; }
 
         let hpScale = (1 + player.level * 0.2) * Math.pow(1.15, Math.max(0, player.level - 10));
-        let finalHp, imgKey, fallback, bossName, xpReward, radius;
+        let finalHp, imgKey, fallback, bossName, xpReward, radius, bossDesc; // ADDED bossDesc
 
         if (bossType === "secret2") {
-            finalHp = Math.round(500 * hpScale);
-            imgKey = "secretBoss2";
-            fallback = CONFIG.EMOJIS.secretBoss2;
-            bossName = `${CONFIG.BOSSES.secret2} (Lv ${player.level})`;
-            xpReward = 450; radius = 85;
+            finalHp = Math.round(500 * hpScale); imgKey = "secretBoss2"; fallback = CONFIG.EMOJIS.secretBoss2; bossName = `${CONFIG.BOSSES.secret2} (Lv ${player.level})`; xpReward = 450; radius = 85;
+            bossDesc = "ไอแซ็กชไนเดอรฺทำยังงี้กับกูได้ไงวะ";
         } else if (bossType === "secret1") {
-            finalHp = Math.round(320 * hpScale);
-            imgKey = "secretBoss1";
-            fallback = CONFIG.EMOJIS.secretBoss1;
-            bossName = `${CONFIG.BOSSES.secret1} (Lv ${player.level})`;
-            xpReward = 240; radius = 75;
+            finalHp = Math.round(320 * hpScale); imgKey = "secretBoss1"; fallback = CONFIG.EMOJIS.secretBoss1; bossName = `${CONFIG.BOSSES.secret1} (Lv ${player.level})`; xpReward = 240; radius = 75;
+            bossDesc = "ก็มึงขาวเกินอะ";
         } else {
-            finalHp = Math.round(200 * hpScale);
-            imgKey = "boss";
-            fallback = CONFIG.EMOJIS.boss;
-            bossName = `${CONFIG.BOSSES.normal} (Lv ${player.level})`;
-            xpReward = 120; radius = 65;
+            finalHp = Math.round(200 * hpScale); imgKey = "boss"; fallback = CONFIG.EMOJIS.boss; bossName = `${CONFIG.BOSSES.normal} (Lv ${player.level})`; xpReward = 120; radius = 65;
+            bossDesc = "โดนซารีโน่อย่างงี้ กินขี้ดีกว่า";
         }
 
-        let boss = new FriendEnemy(x, y, { 
-            imgKey: imgKey, fallback: fallback, hp: finalHp, 
-            speed: Math.min(5.5, 1.25 * (1 + player.level * 0.04)), 
-            xp: xpReward, radius: radius, isBoss: true, name: bossName 
-        });
-        enemies.push(boss); 
-        triggerNotify(CONFIG.TEXT.notifyBoss, 240);
+        let boss = new FriendEnemy(x, y, { imgKey: imgKey, fallback: fallback, hp: finalHp, speed: Math.min(5.5, 1.25 * (1 + player.level * 0.04)), xp: xpReward, radius: radius, isBoss: true, name: bossName, desc: bossDesc });
+        enemies.push(boss); triggerNotify(CONFIG.TEXT.notifyBoss, 240);
     }
 
-    // FIXED: Support customization images for upgrade window layout
     function triggerLevelUp() {
         levelUpActive = true; document.getElementById('levelup-screen').classList.remove('hidden');
         let upgKeys = Object.keys(CONFIG.ABILITIES).sort(() => 0.5 - Math.random());
@@ -434,11 +483,8 @@
             let c = document.createElement('div'); c.className = "card"; 
             c.onclick = () => { player.upgrades[id]++; levelUpActive=false; document.getElementById('levelup-screen').classList.add('hidden'); };
             
-            // Checks if specialized menu items (e.g., ab_coffee.png) loaded successfully
             let customImg = images['ab_' + id];
-            let iconMarkup = (customImg && customImg.complete && customImg.naturalWidth > 0) 
-                ? `<img src="${customImg.src}" alt="${info.name}">` 
-                : info.icon;
+            let iconMarkup = (customImg && customImg.complete && customImg.naturalWidth > 0) ? `<img src="${customImg.src}" alt="${info.name}">` : info.icon;
 
             c.innerHTML = `<div class="card-icon">${iconMarkup}</div><div class="card-title">${info.name} (Lv ${player.upgrades[id]+1})</div><div class="card-desc">${info.desc}</div>`; 
             box.appendChild(c);
@@ -446,61 +492,79 @@
     }
 
     function resetGame() {
-        player = new Player(); enemies = []; projectiles = []; gems = []; chests = []; pulses = []; fires = []; bossPulses = []; bossProjectiles = [];
+        player = new Player(); enemies = []; projectiles = []; gems = []; chests = []; pulses = []; chevyPulses = []; fires = []; bossPulses = []; bossProjectiles = [];
         gameTime = 0; spawnTimer = 0; bossTimer = 5400; playerScore = 0; playerKills = 0; gameActive = true; levelUpActive = false;
         document.getElementById('gameover-screen').classList.add('hidden'); document.getElementById('levelup-screen').classList.add('hidden');
         document.getElementById('submit-section').style.display = 'flex'; document.getElementById('leaderboard-box').classList.add('hidden'); document.getElementById('player-name-input').value = "";
     }
 
-    function endGame() {
+    function endGame(killer = null) {
         gameActive = false; document.getElementById('gameover-screen').classList.remove('hidden');
         let mins = Math.floor(gameTime/60); let secs = Math.floor(gameTime%60).toString().padStart(2,'0');
         document.getElementById('gameover-stats').innerText = `Time: ${mins}:${secs} | Level: ${player.level} | Kills: ${playerKills}`;
         document.getElementById('gameover-score').innerText = `Final Score: ${playerScore}`;
+
+        // UPDATED: Killer Logic UI Update to inject Description
+        let kContainer = document.getElementById('killer-container');
+        let kImg = document.getElementById('killer-image');
+        let kEmoji = document.getElementById('killer-emoji');
+        let kName = document.getElementById('killer-name');
+        let kDesc = document.getElementById('killer-desc'); // Added this
+        
+        kImg.style.display = 'none'; kEmoji.style.display = 'none';
+        
+        if (killer) {
+            kContainer.classList.remove('hidden');
+            let killerName = "Unknown Entity";
+            let killerDesc = "";
+            
+            if (killer === 'BossWifi' || killer === 'BossProj') {
+                killerName = killer === 'BossWifi' ? "True Void Pulse" : "Boss Projectile";
+                killerDesc = killer === 'BossWifi' ? "โดนคลื่นพลัง True Void ทับร่างแตก สภาพพพ!" : "รับลูกบอลพลังงานบอสเข้าหน้าเต็มๆ อิ่มๆ กันไป";
+                kEmoji.innerText = killer === 'BossProj' ? CONFIG.EMOJIS.bossProj : "🌊";
+                kEmoji.style.display = 'block';
+            } else {
+                killerName = killer.name || "ศัตรูทั่วไป (Normal Enemy)";
+                killerDesc = killer.desc || "มันแค่เดินมาชนคุณจนขิตเฉยๆ"; // Pulls description here
+                
+                if (images[killer.imgKey] && images[killer.imgKey].complete && images[killer.imgKey].naturalWidth > 0) {
+                    kImg.src = images[killer.imgKey].src;
+                    kImg.style.display = 'block';
+                } else {
+                    kEmoji.innerText = killer.fallback || "💀";
+                    kEmoji.style.display = 'block';
+                }
+            }
+            kName.innerText = killerName;
+            kDesc.innerText = killerDesc; // Displays description here
+        } else {
+            kContainer.classList.add('hidden');
+        }
+
         loadLeaderboard(); 
     }
 
     function saveScore() {
         let name = document.getElementById('player-name-input').value.trim() || "Anonymous";
         let board = JSON.parse(localStorage.getItem('pherd_leaderboard')) || [];
-        
         board.push({ name: name, score: playerScore, kills: playerKills, time: gameTime });
-        board.sort((a, b) => b.score - a.score); 
-        board = board.slice(0, 10); 
-        
+        board.sort((a, b) => b.score - a.score); board = board.slice(0, 10); 
         localStorage.setItem('pherd_leaderboard', JSON.stringify(board));
-        
-        document.getElementById('submit-section').style.display = 'none';
-        loadLeaderboard();
+        document.getElementById('submit-section').style.display = 'none'; loadLeaderboard();
     }
 
     function deleteScore(index) {
         let board = JSON.parse(localStorage.getItem('pherd_leaderboard')) || [];
-        board.splice(index, 1); 
-        localStorage.setItem('pherd_leaderboard', JSON.stringify(board));
-        loadLeaderboard(); 
+        board.splice(index, 1); localStorage.setItem('pherd_leaderboard', JSON.stringify(board)); loadLeaderboard(); 
     }
 
     function loadLeaderboard() {
-        let board = JSON.parse(localStorage.getItem('pherd_leaderboard')) || [];
-        let listHtml = "";
-        
+        let board = JSON.parse(localStorage.getItem('pherd_leaderboard')) || []; let listHtml = "";
         if (board.length > 0) {
             document.getElementById('leaderboard-box').classList.remove('hidden');
-            board.forEach((entry, index) => {
-                listHtml += `
-                    <div class="lb-entry">
-                        <span class="lb-rank">#${index + 1}</span>
-                        <span class="lb-name">${entry.name}</span>
-                        <span class="lb-score">${entry.score} pts</span>
-                        <span class="lb-kills">(${entry.kills} 💀)</span>
-                        <span class="lb-del" onclick="deleteScore(${index})">❌</span>
-                    </div>`;
-            });
+            board.forEach((entry, index) => { listHtml += `<div class="lb-entry"><span class="lb-rank">#${index + 1}</span><span class="lb-name">${entry.name}</span><span class="lb-score">${entry.score} pts</span><span class="lb-kills">(${entry.kills} 💀)</span><span class="lb-del" onclick="deleteScore(${index})">❌</span></div>`; });
             document.getElementById('leaderboard-list').innerHTML = listHtml;
-        } else {
-            document.getElementById('leaderboard-box').classList.add('hidden');
-        }
+        } else { document.getElementById('leaderboard-box').classList.add('hidden'); }
     }
 
     function drawMobileJoystick() {
@@ -513,20 +577,15 @@
 
     function gameLoop() {
         requestAnimationFrame(gameLoop); 
-        
         if (!gameActive || levelUpActive) return; 
-
         gameTime += 1/60; if(Math.floor(gameTime*60)%60===0) playerScore+=5;
         
         player.update(); spawnEnemy();
         
-        if(--bossTimer <= 0) { 
-            spawnBoss(); 
-            let nextBossTime = Math.max(10, 90 - (player.level * 2.5));
-            bossTimer = Math.round(nextBossTime * 60); 
-        }
+        if(--bossTimer <= 0) { spawnBoss(); let nextBossTime = Math.max(10, 90 - (player.level * 2.5)); bossTimer = Math.round(nextBossTime * 60); }
 
         pulses.forEach(p => p.update()); pulses = pulses.filter(p => p.active);
+        chevyPulses.forEach(p => p.update()); chevyPulses = chevyPulses.filter(p => p.active);
         bossPulses.forEach(p => p.update()); bossPulses = bossPulses.filter(p => p.active);
         bossProjectiles.forEach(p => p.update()); bossProjectiles = bossProjectiles.filter(p => p.life > 0);
         fires.forEach(f => f.update()); fires = fires.filter(f => f.life > 0);
@@ -556,7 +615,7 @@
         ctx.stroke();
 
         fires.forEach(f=>f.draw()); gems.forEach(g=>g.draw()); chests.forEach(c=>c.draw()); 
-        pulses.forEach(p=>p.draw()); bossPulses.forEach(p=>p.draw()); projectiles.forEach(p=>p.draw()); bossProjectiles.forEach(p=>p.draw()); 
+        pulses.forEach(p=>p.draw()); chevyPulses.forEach(p=>p.draw()); bossPulses.forEach(p=>p.draw()); projectiles.forEach(p=>p.draw()); bossProjectiles.forEach(p=>p.draw()); 
         enemies.forEach(e=>e.draw()); player.draw();
         ctx.restore();
 
